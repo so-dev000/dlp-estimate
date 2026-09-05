@@ -3,6 +3,9 @@ from sympy import isprime
 
 type FieldElement = tuple[int, ...]
 type PolynomialCoefficients = tuple[int, ...]
+type FieldMatrix = tuple[FieldElement, ...]
+type Bits = tuple[int, ...]
+type Factorization = tuple[tuple[int, int], ...]
 
 
 class FieldSpec:
@@ -90,3 +93,16 @@ class FiniteField:
         a_galois = self.to_galois(a)
         b_galois = a_galois**exponent
         return self.from_galois(b_galois)
+
+    # 定数倍行列を返す: j列目は c * X^j の係数列
+    def const_mul_matrix(self, c: FieldElement) -> FieldMatrix:
+        r = self.spec.r
+        columns = [self.mul(c, (0,) * j + (1,) + (0,) * (r - j - 1)) for j in range(r)]
+        return tuple(tuple(col[i] for col in columns) for i in range(r))
+
+    # 定数倍行列の逆行列を返す: j列目は c^-1 * X^j の係数列
+    def const_mul_inverse_matrix(self, c: FieldElement) -> FieldMatrix:
+        r = self.spec.r
+        c_inv = self.inv(c)
+        columns = [self.mul(c_inv, (0,) * j + (1,) + (0,) * (r - j - 1)) for j in range(r)]
+        return tuple(tuple(col[i] for col in columns) for i in range(r))
