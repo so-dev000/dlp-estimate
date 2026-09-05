@@ -1,4 +1,4 @@
-from galois import GF, FieldArray
+import galois
 from sympy import isprime
 
 type FieldElement = tuple[int, ...]
@@ -14,6 +14,8 @@ class FieldSpec:
         self.p = p
         self.r = r
         self.f = f
+        if self.r == 1:
+            self.f = (0, 1)  # 0 + 1*X = X
         self.validate()
 
     def validate(self) -> None:
@@ -29,23 +31,32 @@ class FieldSpec:
 
 class FiniteField:
     spec: FieldSpec
+    _galois_field: type[galois.FieldArray]
 
     def __init__(self, spec: FieldSpec) -> None:
         self.spec = spec
+        if spec.r == 1:
+            self._galois_field = galois.GF(spec.p)
+        else:
+            gf_p = galois.GF(spec.p)
+            poly = galois.Poly(spec.f, field=gf_p, order="asc")
+            self._galois_field = galois.GF(spec.p, spec.r, irreducible_poly=poly)
 
+    # 加法単位元
     @property
     def zero(self) -> FieldElement:
-        return (0,)
+        return (0,) * self.spec.r  # (0, 0, ..., 0) : 0 + 0*X + ... + 0*X^(r-1) = 0
 
+    # 乗法単位元
     @property
     def one(self) -> FieldElement:
-        return (1,)
+        return (1,) + (0,) * (self.spec.r - 1)  # (1, 0, ..., 0) : 1 + 0*X + ... + 0*X^(r-1) = 1
 
-    def to_galois(self, a: FieldElement) -> FieldArray:
-        return GF(self.spec.p**self.spec.r, irreducible_poly=self.spec.f)(a)
+    def to_galois(self, a: FieldElement) -> galois.FieldArray:
+        return self._galois_field.Vector(list(reversed(a)))
 
-    def from_galois(self, x: FieldArray) -> FieldElement:
-        return tuple(int(xi) for xi in x)
+    def from_galois(self, x: galois.FieldArray) -> FieldElement:
+        return tuple(int(c) for c in reversed(x.vector()))
 
     def add(self, a: FieldElement, b: FieldElement) -> FieldElement:
         a_galois = self.to_galois(a)
