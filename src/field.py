@@ -22,10 +22,22 @@ class FieldSpec:
         self.validate()
 
     def validate(self) -> None:
-        if isprime(self.p) is False:
+        if isprime(self.p) is False:  # パフォーマンスに影響ありそう
             raise ValueError(f"p must be prime, got {self.p}")
         if self.r < 1:
             raise ValueError(f"r must be positive, got {self.r}")
+        # 係数タプルの長さが r + 1 であることを確認
+        if not isinstance(self.f, tuple) or len(self.f) != self.r + 1:
+            raise ValueError(f"f must be a coefficient tuple of length {self.r + 1}")
+        # 係数が整数であり、0 <= c < p の範囲にあることを確認
+        if any(type(c) is not int or not 0 <= c < self.p for c in self.f):
+            raise ValueError(f"f coefficients must be integers in [0, {self.p})")
+        # f がモニックであることを確認
+        if self.f[-1] != 1:
+            raise ValueError(f"f must be monic, got {self.f}")
+        # f が GF(p) 上で既約であることを確認
+        if not galois.Poly(self.f, field=galois.GF(self.p), order="asc").is_irreducible():
+            raise ValueError(f"f must be irreducible over GF({self.p}), got {self.f}")
 
     @property
     def order(self) -> int:
