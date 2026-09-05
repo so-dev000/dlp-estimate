@@ -3,14 +3,14 @@ name = "dlp-estimate"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = "==3.14.4"
 dependencies = [
-    "galois>=0.4.11",
-    "matplotlib>=3.11.1",
-    "numpy>=2.5.2",
-    "pytest>=9.1.1",
-    "qualtran>=0.7.0",
-    "sympy>=1.14.0",
+    "galois==0.4.11",
+    "matplotlib==3.11.1",
+    "numpy==2.5.2",
+    "pytest==9.1.1",
+    "qualtran==0.7.0",
+    "sympy==1.14.0",
 ]
 
 [tool.uv]
