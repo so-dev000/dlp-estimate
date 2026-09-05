@@ -16,6 +16,23 @@ dependencies = [
 [tool.uv]
 package = false
 
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src", "test"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.2",
+    "ruff>=0.16.6",
+]
