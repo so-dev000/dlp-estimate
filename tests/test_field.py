@@ -182,7 +182,7 @@ def test_embedding_degree_is_smallest_degree_containing_subgroup(
     expected_degree: int,
 ) -> None:
     instance = DLPInstance(
-        field=spec, q=order, q_factors=factors, g=generator, h=FiniteField(spec).one
+        spec=spec, q=order, q_factors=factors, g=generator, h=FiniteField(spec).one
     )
 
     assert embedding_degree(instance) == expected_degree
@@ -192,7 +192,7 @@ def test_embedding_degree_is_smallest_degree_containing_subgroup(
 def order_two_instance() -> DLPInstance:
     """GF(5) の部分群 {1, 4} で 4ᵈ = 1 を解く入力。"""
     return DLPInstance(
-        field=FieldSpec(p=5, r=1, f=(0, 1)),
+        spec=FieldSpec(p=5, r=1, f=(0, 1)),
         q=2,
         q_factors=((2, 1),),
         g=(4,),

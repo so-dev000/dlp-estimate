@@ -18,7 +18,7 @@ from src.field import DLPInstance, FieldElement, FieldSpec, FiniteField
 def composite_order_instance() -> DLPInstance:
     """GF(101) で 2 の位数は 100 = 2² * 5²、2⁷³ = 48。"""
     return DLPInstance(
-        field=FieldSpec(p=101, r=1, f=(0, 1)),
+        spec=FieldSpec(p=101, r=1, f=(0, 1)),
         q=100,
         q_factors=((2, 2), (5, 2)),
         g=(2,),
@@ -51,7 +51,7 @@ def test_pohlig_hellman_recovers_known_logarithm(
 def test_pohlig_hellman_solves_proper_subgroup_in_extension_field() -> None:
     # X² = 3 なので X³ = 3X。X の位数は 8、体の乗法群の位数は 24。
     instance = DLPInstance(
-        field=FieldSpec(p=5, r=2, f=(2, 0, 1)),
+        spec=FieldSpec(p=5, r=2, f=(2, 0, 1)),
         q=8,
         q_factors=((2, 3),),
         g=(0, 1),
@@ -133,7 +133,7 @@ def test_rho_step_uses_integer_representation_of_extension_element() -> None:
 
 def test_pohlig_hellman_solves_subgroup_with_degenerate_hash_partition() -> None:
     instance = DLPInstance(
-        field=FieldSpec(p=31, r=1, f=(0, 1)),
+        spec=FieldSpec(p=31, r=1, f=(0, 1)),
         q=30,
         q_factors=((2, 1), (3, 1), (5, 1)),
         g=(3,),

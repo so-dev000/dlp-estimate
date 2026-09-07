@@ -183,7 +183,7 @@ def _validate_factorization(q: int, factors: Factorization) -> None:
 class DLPInstance:
     """g**d = hを解く入力。生成時に体・位数・部分群所属を検証する。"""
 
-    field: FieldSpec
+    spec: FieldSpec
     q: int  # gの位数
     q_factors: Factorization
     g: FieldElement
@@ -195,7 +195,7 @@ class DLPInstance:
             raise ValueError("q must be an integer > 1")
         _validate_factorization(self.q, self.q_factors)
 
-        field = FiniteField(self.field)
+        field = FiniteField(self.spec)
         g = field.to_galois(self.g)
         h = field.to_galois(self.h)
         if g**self.q != 1:
@@ -213,7 +213,7 @@ def embedding_degree(instance: DLPInstance) -> int:
     p^r = 1 (mod q) が成り立つことは DLPInstance の生成時に検証済みなので、
     k は r の約数であることを利用する。
     """
-    p, r, q = instance.field.p, instance.field.r, instance.q
+    p, r, q = instance.spec.p, instance.spec.r, instance.q
 
     degree = r
     for prime in factorint(r):

@@ -8,7 +8,7 @@ type PollardRhoState = tuple[FieldElement, int, int]
 
 def solve_pohlig_hellman(instance: DLPInstance, *, seed: int = 0) -> int:
     """Pohlig-Hellman法で離散対数問題を部分群ごとに解き、CRTで組み合わせる。"""
-    field = FiniteField(instance.field)
+    field = FiniteField(instance.spec)
     h = instance.h
     g = instance.g
 
