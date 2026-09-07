@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from functools import lru_cache
 
 import galois
 from sympy import factorint, isprime
@@ -39,7 +38,6 @@ class FieldSpec:
         return self.p**self.r
 
 
-@lru_cache(maxsize=32)
 def _galois_field(spec: FieldSpec) -> type[galois.FieldArray]:
     """pの素数性を検証し、既約性の検証をgaloisに任せて体を構築する。"""
     if not isprime(spec.p):
