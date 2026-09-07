@@ -1,7 +1,7 @@
 import math
 import random
 
-from field import DLPInstance, FieldElement, FiniteField
+from .field import DLPInstance, FieldElement, FiniteField
 
 type PollardRhoState = tuple[FieldElement, int, int]
 

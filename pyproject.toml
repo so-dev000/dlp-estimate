@@ -20,7 +20,7 @@ package = false
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-src = ["src", "test"]
+src = ["."]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
@@ -29,7 +29,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 docstring-code-format = true
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["."]
 testpaths = ["tests"]
 
 [dependency-groups]
