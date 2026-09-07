@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib==3.11.1",
     "numpy==2.5.2",
     "pytest==9.1.1",
+    "pytest-cov>=7.1.0",
     "qualtran==0.7.0",
     "sympy==1.14.0",
 ]
