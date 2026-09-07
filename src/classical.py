@@ -1,12 +1,13 @@
+import math
 import random
 
 from field import DLPInstance, FieldElement, FiniteField
 
-_RHO_MAX_STEPS = 100_000
+type PollardRhoState = tuple[FieldElement, int, int]
 
 
 def solve_pohlig_hellman(instance: DLPInstance, *, seed: int = 0) -> int:
-    """Pohlig-Hellman法で離散対数を解く。"""
+    """Pohlig-Hellman法で離散対数問題を部分群ごとに解き、CRTで組み合わせる。"""
     field = FiniteField(instance.field)
     h = instance.h
     g = instance.g
@@ -70,12 +71,57 @@ def _chinese_remainder_theorem(congruences: list[tuple[int, int]]) -> int:
 
 
 def _pollard_rho(
-    field: FiniteField, g: FieldElement, h: FieldElement, order: int, *, rng: random.Random
+    field: FiniteField,
+    g: FieldElement,
+    h: FieldElement,
+    order: int,
+    *,
+    rng: random.Random,
+    max_restarts: int = 32,
+    step_factor: int = 10,
 ) -> int:
+    """Pollard rho法で離散対数を解く。"""
     if h == field.one:
         return 0
     elif h == g:
         return 1
+
+    # _rho_stepのwrapper
+    def step(state: PollardRhoState) -> PollardRhoState:
+        return _rho_step(field, g, h, order, state)
+
+    max_steps = math.ceil(step_factor * math.sqrt(order))
+
+    for _ in range(max_restarts):
+        a = rng.randrange(order)
+        b = rng.randrange(order)
+        x_0 = field.mul(field.pow(g, a), field.pow(h, b))
+        initial_state = (x_0, a, b)
+
+        # Floydのサイクル検出法で衝突を探す
+        tortoise = step(initial_state)
+        hare = step(step(initial_state))
+
+        for _ in range(max_steps):
+            element_t, a_t, b_t = tortoise
+            element_h, a_h, b_h = hare
+
+            # 衝突が見つかった場合
+            if element_h == element_t:
+                numerator = (a_t - a_h) % order
+                denominator = (b_h - b_t) % order
+                if denominator == 0:
+                    break
+                candidate = (numerator * pow(denominator, -1, order)) % order
+                # 検算
+                if field.pow(g, candidate) == h:
+                    return candidate
+                break
+
+            tortoise = step(tortoise)
+            hare = step(step(hare))
+
+    raise RuntimeError("Pollard rho failed to find a discrete logarithm after max_restarts")
 
 
 def _rho_step(
@@ -83,7 +129,19 @@ def _rho_step(
     g: FieldElement,
     h: FieldElement,
     order: int,
-    rng: random.Random,
-    state: tuple[FieldElement, int, int],
-) -> tuple[FieldElement, int, int]:
-    pass
+    state: PollardRhoState,
+) -> PollardRhoState:
+    """Pollard rho法の状態を1ステップ進める。"""
+    element, a, b = state
+    # 3つの部分集合に分ける
+    bucket = hash(element) % 3
+
+    if bucket == 0:
+        # X' = Xh
+        return (field.mul(element, h), a, (b + 1) % order)
+    elif bucket == 1:
+        # X' = X²
+        return (field.mul(element, element), (2 * a) % order, (2 * b) % order)
+    else:
+        # X' = Xg
+        return (field.mul(element, g), (a + 1) % order, b)
