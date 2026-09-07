@@ -8,9 +8,12 @@ _RHO_MAX_STEPS = 100_000
 def solve_pohlig_hellman(instance: DLPInstance, *, seed: int = 0) -> int:
     """Pohlig-Hellman法で離散対数を解く。"""
     field = FiniteField(instance.field)
-    if instance.h == field.one:
+    h = instance.h
+    g = instance.g
+
+    if h == field.one:
         return 0
-    if instance.h == instance.g:
+    if h == g:
         return 1
 
     rng = random.Random(seed)
@@ -22,7 +25,7 @@ def solve_pohlig_hellman(instance: DLPInstance, *, seed: int = 0) -> int:
 
     discrete_log = _chinese_remainder_theorem(congruences)
     # 検算
-    if field.pow(instance.g, discrete_log) != instance.h:
+    if field.pow(g, discrete_log) != h:
         raise RuntimeError("computed discrete logarithm does not satisfy g**d = h")
     return discrete_log
 
@@ -53,13 +56,26 @@ def _solve_prime_power(
 
 def _chinese_remainder_theorem(congruences: list[tuple[int, int]]) -> int:
     """中国剰余定理で合同式の解を求める。"""
-    pass
+    total_order = 1
+    # N = n1 * n2 * ... * nk
+    for _, order in congruences:
+        total_order *= order
+
+    x = 0
+    for remainder, order in congruences:
+        partial_order = total_order // order  # N_i = N / n_i
+        inverse = pow(partial_order, -1, order)  # M_i = N_i^(-1) mod n_i
+        x += remainder * partial_order * inverse  # x = Σ a_i * N_i * M_i
+    return x % total_order
 
 
 def _pollard_rho(
     field: FiniteField, g: FieldElement, h: FieldElement, order: int, *, rng: random.Random
 ) -> int:
-    pass
+    if h == field.one:
+        return 0
+    elif h == g:
+        return 1
 
 
 def _rho_step(
