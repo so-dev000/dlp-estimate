@@ -131,17 +131,19 @@ def _rho_step(
     order: int,
     state: PollardRhoState,
 ) -> PollardRhoState:
-    """Pollard rho法の状態を1ステップ進める。"""
+    """X = g**a * h**b を保ちながら、状態を1ステップ進める。"""
     element, a, b = state
-    # 3つの部分集合に分ける
-    bucket = hash(element) % 3
+    # 整数表現 sum(c_i * p**i) の mod 3 を、高次数の係数から計算する。
+    bucket = 0
+    for coefficient in reversed(element):
+        bucket = (bucket * field.spec.p + coefficient) % 3
 
     if bucket == 0:
-        # X' = Xh
+        # S_0: X' = Xh
         return (field.mul(element, h), a, (b + 1) % order)
     elif bucket == 1:
-        # X' = X²
+        # S_1: X' = X²
         return (field.mul(element, element), (2 * a) % order, (2 * b) % order)
     else:
-        # X' = Xg
+        # S_2: X' = Xg
         return (field.mul(element, g), (a + 1) % order, b)

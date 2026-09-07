@@ -94,42 +94,44 @@ def test_pollard_rho_recovers_known_logarithm(
 def test_pollard_rho_reports_exhausted_restarts(
     gf23: FiniteField, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # 常に Xg の分岐に進むと b が変わらず、有効な衝突を得られない。
-    monkeypatch.setattr(classical, "hash", lambda _: 2, raising=False)
+    # 状態が変わらない歩行では、再試行しても情報のない衝突になる。
+    monkeypatch.setattr(classical, "_rho_step", lambda field, g, h, order, state: state)
 
     with pytest.raises(RuntimeError, match="after max_restarts"):
         _pollard_rho(gf23, (2,), (8,), 11, rng=random.Random(0), max_restarts=2)
 
 
 @pytest.mark.parametrize(
-    ("bucket", "expected_state"),
+    ("initial_state", "expected_state"),
     [
-        pytest.param(0, ((12,), 10, 0), id="multiply-by-target"),
-        pytest.param(1, ((8,), 9, 9), id="square"),
-        pytest.param(2, ((3,), 0, 10), id="multiply-by-generator"),
+        pytest.param(((3,), 0, 10), ((1,), 0, 0), id="s0-multiply-by-target"),
+        pytest.param(((13,), 10, 10), ((8,), 9, 9), id="square"),
+        pytest.param(((8,), 10, 5), ((16,), 0, 5), id="s2-multiply-by-generator"),
     ],
 )
 def test_rho_step_updates_element_and_wraps_exponents(
     gf23: FiniteField,
-    monkeypatch: pytest.MonkeyPatch,
-    bucket: int,
+    initial_state: PollardRhoState,
     expected_state: PollardRhoState,
 ) -> None:
-    # Python の hash 値に依存せず、各分岐を 1 回ずつ検証する。
-    monkeypatch.setattr(classical, "hash", lambda _: bucket, raising=False)
-    initial_state = ((13,), 10, 10)  # 2¹⁰ * 8¹⁰ = 13 mod 23
+    # 各初期状態は X = 2**a * 8**b を満たす。X mod 3 で各分岐を検証する。
+    next_state = _rho_step(gf23, (2,), (8,), 11, initial_state)
 
-    assert _rho_step(gf23, (2,), (8,), 11, initial_state) == expected_state
+    assert next_state == expected_state
+    element, a, b = next_state
+    assert element == gf23.mul(gf23.pow((2,), a), gf23.pow((8,), b))
 
 
-@pytest.mark.xfail(
-    all(hash(element) % 3 == 2 for element in [(1,), (5,), (25,)]),
-    reason="位数 3 の部分群 {1, 5, 25} がすべて Xg の分岐に入り、再試行しても解けない",
-    raises=RuntimeError,
-    strict=True,
-)
+def test_rho_step_uses_integer_representation_of_extension_element() -> None:
+    field = FiniteField(FieldSpec(p=5, r=2, f=(2, 0, 1)))
+    # g = 2 + X は位数 3、h = g² = 2 + 4X。
+    # g の整数表現は 2 + 1*5 = 7 なので、7 mod 3 = 1 の二乗分岐に進む。
+    initial_state = ((2, 1), 1, 0)
+
+    assert _rho_step(field, (2, 1), (2, 4), 3, initial_state) == ((2, 4), 2, 0)
+
+
 def test_pohlig_hellman_solves_subgroup_with_degenerate_hash_partition() -> None:
-    # 3² = 9 mod 31。hash の分割方法が改善されたら xfail を外す。
     instance = DLPInstance(
         field=FieldSpec(p=31, r=1, f=(0, 1)),
         q=30,
