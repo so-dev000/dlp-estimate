@@ -37,6 +37,11 @@ class FieldSpec:
         """体の要素数 p**r を返す。"""
         return self.p**self.r
 
+    @property
+    def coefficient_bits(self) -> int:
+        """1係数のビット幅を返す。"""
+        return self.p.bit_length()
+
 
 def _galois_field(spec: FieldSpec) -> type[galois.FieldArray]:
     """pの素数性を検証し、既約性の検証をgaloisに任せて体を構築する。"""
@@ -125,24 +130,19 @@ class FiniteField:
         return tuple(tuple(column[i] for column in columns) for i in range(r))
 
 
-def coefficient_bits(spec: FieldSpec) -> int:
-    """1係数のビット幅を返す。"""
-    return spec.p.bit_length()
-
-
 def encode(element: FieldElement, spec: FieldSpec) -> Bits:
     """
     係数を低次数順に、各係数をp.bit_length()ビットのbig-endianで符号化する。
     例: p=5, r=3, element=(3, 0, 4) の場合、(3, 0, 4) -> (011, 000, 100) -> (0,1,1,0,0,0,1,0,0)
     """
-    n = coefficient_bits(spec)
+    n = spec.coefficient_bits
     _validate_element(element, spec)
     return tuple((a >> shift) & 1 for a in element for shift in range(n - 1, -1, -1))
 
 
 def decode(bits: Bits, spec: FieldSpec) -> FieldElement:
     """encodeされた符号を復元する。"""
-    n = coefficient_bits(spec)
+    n = spec.coefficient_bits
     if not isinstance(bits, tuple) or len(bits) != spec.r * n:
         raise ValueError(f"bits must be a tuple of length {spec.r * n}")
     if any(type(bit) is not int or bit not in (0, 1) for bit in bits):

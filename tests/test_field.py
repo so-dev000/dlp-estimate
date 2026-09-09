@@ -10,7 +10,6 @@ from src.field import (
     FieldSpec,
     FiniteField,
     PolynomialCoefficients,
-    coefficient_bits,
     decode,
     embedding_degree,
     encode,
@@ -128,7 +127,7 @@ def test_conversion_and_encoding_reject_invalid_elements(
 def test_encoding_uses_low_degree_order_and_big_endian_bits(gf25: FiniteField) -> None:
     bits = (0, 1, 1, 0, 0, 1)  # (3, 1) → (011, 001)
 
-    assert coefficient_bits(gf25.spec) == 3
+    assert gf25.spec.coefficient_bits == 3
     assert encode((3, 1), gf25.spec) == bits
     assert decode(bits, gf25.spec) == (3, 1)
 
@@ -137,7 +136,7 @@ def test_binary_field_uses_two_bits_per_coefficient() -> None:
     field = FiniteField(FieldSpec(p=2, r=1, f=(0, 1)))
 
     assert field.add((1,), (1,)) == (0,)
-    assert coefficient_bits(field.spec) == 2
+    assert field.spec.coefficient_bits == 2
     assert encode((1,), field.spec) == (0, 1)
     assert decode((0, 1), field.spec) == (1,)
     with pytest.raises(ValueError, match="decoded coefficients"):
