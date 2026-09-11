@@ -2,12 +2,12 @@ from dataclasses import replace
 
 import pytest
 
-from src import pohling_hellman
-from src.field import DLPInstance, FieldElement, FieldSpec
-from src.pohling_hellman import (
+from src.classical import pohling_hellman
+from src.classical.pohling_hellman import (
     _chinese_remainder_theorem,
     solve_pohlig_hellman,
 )
+from src.field import DLPInstance, FieldElement, FieldSpec
 
 
 @pytest.fixture

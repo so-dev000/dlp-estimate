@@ -1,8 +1,7 @@
 import random
 
-from src.pollard_rho import pollard_rho
-
-from .field import DLPInstance, FieldElement, FiniteField
+from src.classical.pollard_rho import pollard_rho
+from src.field import DLPInstance, FieldElement, FiniteField
 
 type PollardRhoState = tuple[FieldElement, int, int]
 

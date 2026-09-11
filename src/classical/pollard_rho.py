@@ -1,7 +1,7 @@
 import math
 import random
 
-from .field import FieldElement, FiniteField
+from src.field import FieldElement, FiniteField
 
 type PollardRhoState = tuple[FieldElement, int, int]
 
