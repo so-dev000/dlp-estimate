@@ -2,12 +2,12 @@ from dataclasses import replace
 
 import pytest
 
-from src import classical
-from src.classical import (
+from src import pohling_hellman
+from src.field import DLPInstance, FieldElement, FieldSpec
+from src.pohling_hellman import (
     _chinese_remainder_theorem,
     solve_pohlig_hellman,
 )
-from src.field import DLPInstance, FieldElement, FieldSpec, FiniteField
 
 
 @pytest.fixture
@@ -20,12 +20,6 @@ def composite_order_instance() -> DLPInstance:
         g=(2,),
         h=(48,),
     )
-
-
-@pytest.fixture
-def gf23() -> FiniteField:
-    """GF(23) の部分群 <2> は位数 11。2³ = 8。"""
-    return FiniteField(FieldSpec(p=23, r=1, f=(0, 1)))
 
 
 @pytest.mark.parametrize(
@@ -60,7 +54,7 @@ def test_pohlig_hellman_solves_proper_subgroup_in_extension_field() -> None:
 def test_pohlig_hellman_rejects_incorrect_recombined_answer(
     composite_order_instance: DLPInstance, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(classical, "_chinese_remainder_theorem", lambda _: 0)
+    monkeypatch.setattr(pohling_hellman, "_chinese_remainder_theorem", lambda _: 0)
 
     with pytest.raises(RuntimeError, match="does not satisfy"):
         solve_pohlig_hellman(composite_order_instance, seed=0)

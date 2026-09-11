@@ -2,11 +2,11 @@ import random
 
 import pytest
 
-from src.classical import (
+from src.field import DLPInstance, FieldElement, FieldSpec, FiniteField
+from src.pohling_hellman import (
     PollardRhoState,
     solve_pohlig_hellman,
 )
-from src.field import DLPInstance, FieldElement, FieldSpec, FiniteField
 from src.pollard_rho import _rho_step, pollard_rho
 
 
