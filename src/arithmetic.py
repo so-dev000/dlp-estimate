@@ -1,10 +1,12 @@
 from functools import cached_property
 
 import attrs
+import numpy as np
 from qualtran import Bloq, BloqBuilder, QBit, QUInt, Register, Signature, SoquetT
+from qualtran.bloqs.mod_arithmetic import CtrlScaleModAdd
 from qualtran.simulation.classical_sim import ClassicalValT
 
-from .field import FieldElement, FieldMatrix, FieldSpec, FiniteField, coefficient_bits
+from .field import FieldElement, FieldMatrix, FieldSpec, FiniteField
 
 
 @attrs.frozen(kw_only=True)
@@ -33,17 +35,32 @@ class ControlledLinearMapAdd(Bloq):
 
     @property
     def signature(self) -> Signature:
-        n = coefficient_bits(self.spec)
+        n = self.spec.coefficient_bits
         return Signature(
             [
                 Register("ctrl", QBit()),
-                Register("x", QUInt(n), _shape=(self.spec.r,)),
-                Register("y", QUInt(n), _shape=(self.spec.r,)),
+                # attrs が生成する shape 引数を型検査器が認識しないため位置引数で渡す。
+                Register("x", QUInt(n), (self.spec.r,)),
+                Register("y", QUInt(n), (self.spec.r,)),
             ]
         )
 
     def build_composite_bloq(self, bb: BloqBuilder, **soqs: SoquetT) -> dict[str, SoquetT]:
-        return {}
+        ctrl = soqs["ctrl"]
+        x = soqs["x"]
+        y = soqs["y"]
+        assert isinstance(x, np.ndarray)
+        assert isinstance(y, np.ndarray)
+        n = self.spec.coefficient_bits
+        p = self.spec.p
+        for i, row in enumerate(self.matrix):
+            for j, coefficient in enumerate(row):
+                if coefficient == 0:
+                    continue
+                ctrl, x[j], y[i] = bb.add_t(
+                    CtrlScaleModAdd(bitsize=n, mod=p, k=coefficient), ctrl=ctrl, x=x[j], y=y[i]
+                )
+        return {"ctrl": ctrl, "x": x, "y": y}
 
     def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         return {}
@@ -68,12 +85,12 @@ class ControlledConstMul(Bloq):
 
     @property
     def signature(self) -> Signature:
-        n = coefficient_bits(self.spec)
+        n = self.spec.coefficient_bits
         return Signature(
             [
                 Register("ctrl", QBit()),
-                Register("x", QUInt(n), _shape=(self.spec.r,)),
-                Register("y", QUInt(n), _shape=(self.spec.r,)),
+                Register("x", QUInt(n), (self.spec.r,)),
+                Register("y", QUInt(n), (self.spec.r,)),
             ]
         )
 
