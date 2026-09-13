@@ -14,8 +14,10 @@ uv sync --locked
 dlp-estimate/
 ├── src/
 │   ├── __init__.py
-│   ├── field.py          # 有限体演算・符号化・DLP 入力の検証
-│   ├── arithmetic.py     # Qualtran による有限体演算回路
+│   ├── field.py            # 有限体演算・符号化・DLP 入力の検証
+│   ├── arithmetic.py       # Qualtran による有限体演算回路
+│   ├── shor.py             # Shor-DLP
+│   ├── logical_resources.py # 論理リソース見積り
 │   └── classical/
 │       ├── __init__.py
 │       ├── pohling_hellman.py  # Pohlig–Hellman 法
