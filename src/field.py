@@ -40,7 +40,7 @@ class FieldSpec:
     @property
     def coefficient_bits(self) -> int:
         """1係数のビット幅を返す。"""
-        return self.p.bit_length()
+        return (self.p - 1).bit_length()
 
 
 def _galois_field(spec: FieldSpec) -> type[galois.FieldArray]:
