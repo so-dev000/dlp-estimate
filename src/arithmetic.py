@@ -12,7 +12,10 @@ from .field import FieldElement, FieldMatrix, FieldSpec, FiniteField
 
 @attrs.frozen(kw_only=True)
 class ControlledLinearMapAdd(Bloq):
-    """(ctrl, x, y) -> (ctrl, x, y + ctrl*M*x)"""
+    """
+    (ctrl, x, y) -> (ctrl, x, y + ctrl*M*x)
+    Figure 14 of https://arxiv.org/abs/quant-ph/0301163v1
+    """
 
     spec: FieldSpec
     matrix: FieldMatrix
@@ -94,7 +97,10 @@ class ControlledLinearMapAdd(Bloq):
 
 @attrs.frozen(kw_only=True)
 class ControlledConstMul(Bloq):
-    """(ctrl, x) -> (ctrl, c^ctrl * x)"""
+    """
+    (ctrl, x) -> (ctrl, c^ctrl * x)
+    Figure 11  of https://arxiv.org/abs/quant-ph/0301163v1
+    """
 
     spec: FieldSpec
     c: FieldElement
