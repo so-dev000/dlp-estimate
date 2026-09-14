@@ -132,7 +132,7 @@ class FiniteField:
 
 def encode(element: FieldElement, spec: FieldSpec) -> Bits:
     """
-    係数を低次数順に、各係数をp.bit_length()ビットのbig-endianで符号化する。
+    係数を低次数順に、各係数をspec.coefficient_bitsビットのbig-endianで符号化する。
     例: p=5, r=3, element=(3, 0, 4) の場合、(3, 0, 4) -> (011, 000, 100) -> (0,1,1,0,0,0,1,0,0)
     """
     n = spec.coefficient_bits
