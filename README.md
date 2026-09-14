@@ -12,11 +12,12 @@ uv sync --locked
 
 ```text
 dlp-estimate/
+├── show_call_graph.py       # Qualtran call-graph 表示用スクリプト
 ├── src/
 │   ├── __init__.py
-│   ├── field.py            # 有限体演算・符号化・DLP 入力の検証
-│   ├── arithmetic.py       # Qualtran による有限体演算回路
-│   ├── shor.py             # Shor-DLP
+│   ├── field.py             # 有限体演算・符号化・DLP 入力の検証
+│   ├── arithmetic.py        # Qualtran による有限体演算回路
+│   ├── shor.py              # Shor-DLP
 │   ├── logical_resources.py # 論理リソース見積り
 │   └── classical/
 │       ├── __init__.py
@@ -25,6 +26,8 @@ dlp-estimate/
 └── tests/ # リグレッション防止目的 (一旦Codexで作成・要確認)
     ├── __init__.py
     ├── test_field.py
+    ├── test_arithmetic.py
+    ├── test_shor.py
     └── classical/
         ├── __init__.py
         ├── test_pohling_hellman.py
