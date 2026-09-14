@@ -2,8 +2,9 @@ from functools import cached_property
 
 import attrs
 import numpy as np
-from qualtran import Bloq, BloqBuilder, QBit, QUInt, Register, Signature, SoquetT
-from qualtran.bloqs.basic_gates import CNOT, XGate
+from qualtran import Bloq, BloqBuilder, CBit, QBit, QUInt, Register, Side, Signature, SoquetT
+from qualtran.bloqs.basic_gates import CNOT, Hadamard, MeasureZ, XGate
+from qualtran.bloqs.qft import QFTTextBook
 from qualtran.simulation.classical_sim import ClassicalValT
 
 from .arithmetic import ControlledConstMul
@@ -81,7 +82,6 @@ class FieldExponentiation(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        """素数性・既約性を検証済みの有限体。"""
         return FiniteField(self.spec)
 
     @property
@@ -178,7 +178,6 @@ class DLPOracle(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        """素数性・既約性を検証済みの有限体。"""
         return FiniteField(self.instance.spec)
 
     @property
@@ -292,11 +291,74 @@ class DLPOracle(Bloq):
 
 @attrs.frozen(kw_only=True)
 class ShorDLP(Bloq):
+    """
+    Nielsen-Chuang5.4.2節のShor-DLP実装
+
+    |a=0>|b=0>|y=0>
+          -> H^{⊗m}をa, bに適用
+          -> (1/2^m) Σ_{a,b} |a>|b>|y=0>
+          -> DLPOracleを適用
+          -> (1/2^m) Σ_{a,b} |a>|b>|y=encode(h^a g^b)>
+          -> QFT^{-1}をa, bに適用
+          -> a, bを測定
+          -> |A>|B>|y>
+    """
+
     instance: DLPInstance
     config: ShorConfig
 
     @cached_property
-    def field(self) -> FiniteField: ...
+    def field(self) -> FiniteField:
+        return FiniteField(self.instance.spec)
+
     @property
-    def signature(self) -> Signature: ...
-    def build_composite_bloq(self, bb: BloqBuilder, **soqs: SoquetT) -> dict[str, SoquetT]: ...
+    def signature(self) -> Signature:
+        m = self.config.exponent_bits
+        n = self.instance.spec.coefficient_bits
+        r = self.instance.spec.r
+        return Signature(
+            [
+                Register("a", CBit(), (m,), Side.RIGHT),
+                Register("b", CBit(), (m,), Side.RIGHT),
+                Register("y", QBit(), (r * n,), Side.RIGHT),
+            ]
+        )
+
+    def build_composite_bloq(self, bb: BloqBuilder, **soqs: SoquetT) -> dict[str, SoquetT]:
+        m = self.config.exponent_bits
+        n = self.instance.spec.coefficient_bits
+        r = self.instance.spec.r
+
+        # 初期状態 |0>|0>|0>
+        a = bb.allocate(dtype=QUInt(m))
+        b = bb.allocate(dtype=QUInt(m))
+        y = np.array(
+            [bb.allocate(dtype=QBit()) for _ in range(r * n)],
+            dtype=object,
+        )
+
+        # 一様重ね合わせ |0>|0>|0> -> (1/2^m) Σ_{a,b} |a>|b>|0>
+        a_bits = bb.split(a)
+        b_bits = bb.split(b)
+        for i in range(m):
+            a_bits[i] = bb.add(Hadamard(), q=a_bits[i])
+            b_bits[i] = bb.add(Hadamard(), q=b_bits[i])
+        a = bb.join(a_bits, dtype=QUInt(m))
+        b = bb.join(b_bits, dtype=QUInt(m))
+
+        # DLPOracleを適用 |a>|b>|y=0> -> |a>|b>|encode(h^a g^b)>
+        a, b, y = bb.add_t(DLPOracle(instance=self.instance, exponent_bits=m), a=a, b=b, y=y)
+
+        # 逆QFTを適用
+        (a,) = bb.add_t(QFTTextBook(bitsize=m, with_reverse=True).adjoint(), q=a)
+        (b,) = bb.add_t(QFTTextBook(bitsize=m, with_reverse=True).adjoint(), q=b)
+
+        # Z測定
+        a_bits = bb.split(a)
+        b_bits = bb.split(b)
+        a_clas = np.empty(m, dtype=object)
+        b_clas = np.empty(m, dtype=object)
+        for i in range(m):
+            a_clas[i] = bb.add(MeasureZ(), q=a_bits[i])
+            b_clas[i] = bb.add(MeasureZ(), q=b_bits[i])
+        return {"a": a_clas, "b": b_clas, "y": y}

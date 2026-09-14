@@ -33,7 +33,6 @@ class ControlledLinearMapAdd(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        """素数性・既約性を検証済みの有限体。"""
         return FiniteField(self.spec)
 
     @property
@@ -111,7 +110,6 @@ class ControlledConstMul(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        """素数性・既約性を検証済みの有限体。"""
         return FiniteField(self.spec)
 
     @property
