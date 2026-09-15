@@ -23,6 +23,8 @@ class ControlledLinearMapAdd(Bloq):
     def __attrs_post_init__(self) -> None:
         _ = self.field
         r, p = self.spec.r, self.spec.p
+        if p == 2:
+            raise ValueError("GF(2) is not supported in this class")
         if len(self.matrix) != r:
             raise ValueError(f"matrix must have {r} rows")
         for row in self.matrix:
@@ -74,6 +76,8 @@ class ControlledLinearMapAdd(Bloq):
     def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         r, p = self.spec.r, self.spec.p
         ctrl = int(vals["ctrl"])
+
+        # チェック
         if ctrl not in (0, 1):
             raise ValueError(f"ctrl must be 0 or 1, got {ctrl}")
 
@@ -89,6 +93,7 @@ class ControlledLinearMapAdd(Bloq):
         x = to_coefficients("x")
         y = to_coefficients("y")
 
+        # 計算
         if ctrl:
             y = (np.array(self.matrix, dtype=object) @ x + y) % p
 
@@ -106,6 +111,8 @@ class ControlledConstMul(Bloq):
     c: FieldElement
 
     def __attrs_post_init__(self) -> None:
+        if self.spec.p == 2:
+            raise ValueError("GF(2) is not supported in this class")
         if self.field.to_galois(self.c) == 0:
             raise ValueError("c must be nonzero")
 
@@ -190,6 +197,8 @@ class ControlledConstMul(Bloq):
     def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         r, p = self.spec.r, self.spec.p
         ctrl = int(vals["ctrl"])
+
+        # チェック
         if ctrl not in (0, 1):
             raise ValueError(f"ctrl must be 0 or 1, got {ctrl}")
 
@@ -201,6 +210,7 @@ class ControlledConstMul(Bloq):
         if any(not 0 <= coefficient < p for coefficient in coefficients):
             raise ValueError(f"x coefficients must be in [0, {p})")
 
+        # 計算
         if ctrl:
             coefficients = self.field.mul(self.c, coefficients)
 
@@ -214,3 +224,74 @@ class ControlledConstMul(Bloq):
             spec=self.spec,
             c=self.field.inv(self.c),
         )
+
+
+@attrs.frozen(kw_only=True)
+class ControlledGF2ConstMul(Bloq):
+    """
+    |ctrl>|x> -> |ctrl>|c^ctrl * x>
+    https://qualtran.readthedocs.io/en/latest/bloqs/gf_arithmetic/gf2_multiplication.html#gf2mulk
+    https://arxiv.org/abs/1910.02849v2 Algorithm 1
+    """
+
+    spec: FieldSpec
+    c: FieldElement
+
+    def __attrs_post_init__(self) -> None:
+        if self.spec.p != 2:
+            raise ValueError("GF(2) is required in this class")
+        if self.field.to_galois(self.c) == 0:
+            raise ValueError("c must be nonzero")
+
+    @cached_property
+    def field(self) -> FiniteField:
+        return FiniteField(self.spec)
+
+    @property
+    def signature(self) -> Signature:
+        return Signature(
+            [
+                Register("ctrl", QBit()),
+                Register("x", QUInt(1), (self.spec.r,)),
+            ]
+        )
+
+    def build_composite_bloq(self, bb: BloqBuilder, **soqs: SoquetT) -> dict[str, SoquetT]:
+        raise NotImplementedError()
+
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
+        r, p = self.spec.r, self.spec.p
+        ctrl = int(vals["ctrl"])
+
+        # チェック
+        if ctrl not in (0, 1):
+            raise ValueError(f"ctrl must be 0 or 1, got {ctrl}")
+
+        x = np.asarray(vals["x"])
+        if x.shape != (r,):
+            raise ValueError(f"x must have shape ({r},), got {x.shape}")
+
+        coefficients = tuple(int(v) for v in x)
+        if any(coefficient not in (0, 1) for coefficient in coefficients):
+            raise ValueError(f"x coefficients must be in [0, {p})")
+
+        if ctrl:
+            coefficients = self.field.mul(self.c, coefficients)
+
+        return {
+            "ctrl": ctrl,
+            "x": np.array(coefficients, dtype=object),
+        }
+
+    def adjoint(self) -> ControlledGF2ConstMul:
+        return ControlledGF2ConstMul(
+            spec=self.spec,
+            c=self.field.inv(self.c),
+        )
+
+
+def get_controlled_const_mul(spec: FieldSpec, c: FieldElement) -> Bloq:
+    """GF(2)ではControlledGF2ConstMul、それ以外ではControlledConstMulを返す。"""
+    if spec.p == 2:
+        return ControlledGF2ConstMul(spec=spec, c=c)
+    return ControlledConstMul(spec=spec, c=c)

@@ -7,7 +7,8 @@ from qualtran.bloqs.basic_gates import CNOT, Hadamard, MeasureZ, XGate
 from qualtran.bloqs.qft import QFTTextBook
 from qualtran.simulation.classical_sim import ClassicalValT
 
-from .arithmetic import ControlledConstMul
+from src.arithmetic import get_controlled_const_mul
+
 from .field import Bits, DLPInstance, FieldElement, FieldSpec, FiniteField, encode
 
 
@@ -100,10 +101,11 @@ class FieldExponentiation(Bloq):
         assert isinstance(bits, np.ndarray)
 
         constants = _squared_constants(self.field, self.base, self.exponent_bits)
+
         for i, constant in enumerate(constants):
             # 指数はbig-endianなので、第i定数 base**(2**i) は bits[-1-i] で指定する
             bits[-1 - i], x = bb.add_t(
-                ControlledConstMul(spec=self.spec, c=constant),
+                get_controlled_const_mul(self.spec, constant),
                 ctrl=bits[-1 - i],
                 x=x,
             )

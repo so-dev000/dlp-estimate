@@ -132,15 +132,13 @@ def test_encoding_uses_low_degree_order_and_big_endian_bits(gf25: FiniteField) -
     assert decode(bits, gf25.spec) == (3, 1)
 
 
-def test_binary_field_uses_two_bits_per_coefficient() -> None:
+def test_binary_field_uses_one_bit_per_coefficient() -> None:
     field = FiniteField(FieldSpec(p=2, r=1, f=(0, 1)))
 
     assert field.add((1,), (1,)) == (0,)
-    assert field.spec.coefficient_bits == 2
-    assert encode((1,), field.spec) == (0, 1)
-    assert decode((0, 1), field.spec) == (1,)
-    with pytest.raises(ValueError, match="coefficients must be less than 2"):
-        decode((1, 0), field.spec)
+    assert field.spec.coefficient_bits == 1
+    assert encode((1,), field.spec) == (1,)
+    assert decode((1,), field.spec) == (1,)
 
 
 @pytest.mark.parametrize(
