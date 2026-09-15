@@ -8,11 +8,18 @@
 uv sync --locked
 ```
 
+## スクリプト実行
+
+```bash
+uv run script/show_call_graph.py
+```
+
 ## フォルダ構成
 
 ```text
 dlp-estimate/
-├── show_call_graph.py       # Qualtran call-graph 表示用スクリプト
+├── script/
+│   └── show_call_graph.py   # Qualtran call-graph 表示用スクリプト
 ├── src/
 │   ├── __init__.py
 │   ├── field.py             # 有限体演算・符号化・DLP 入力の検証
