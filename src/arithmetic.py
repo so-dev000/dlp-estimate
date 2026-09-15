@@ -55,6 +55,7 @@ class ControlledLinearMapAdd(Bloq):
         n = self.spec.coefficient_bits
         p = self.spec.p
 
+        # ===== O(n^2)の呼び出しで非効率. Windowingという方法で減らせる? =====
         for j in range(self.spec.r):
             for i in range(self.spec.r):
                 coefficient = self.matrix[i][j]
