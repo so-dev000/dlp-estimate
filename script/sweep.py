@@ -1,0 +1,147 @@
+import csv
+import json
+from pathlib import Path
+
+from src.field import format_polynomial
+from src.search import Params, sweep
+
+COLUMNS = [
+    "p",
+    "r",
+    "f",
+    "q",
+    "g",
+    "h",
+    "exponent_bits",
+    "logical_qubits",
+    "t",
+    "toffoli",
+    "cswap",
+    "and_bloq",
+    "clifford",
+    "rotation",
+    "measurement",
+    "error",
+]
+
+
+def _cell(key: str, value: object) -> object:
+    """各列をCSV用の表現へ変換。f・g・hは多項式表示。"""
+    if key in ("f", "g", "h") and isinstance(value, tuple):
+        try:
+            return format_polynomial(value)
+        except Exception:
+            return str(value)
+    if isinstance(value, tuple):
+        return str(value)
+    return value
+
+
+def write_csv(rows: list[dict], path: Path) -> None:
+    """結果をCSVに保存する。欠けた列は空欄にする。"""
+    with path.open("w", newline="") as fp:
+        writer = csv.DictWriter(fp, fieldnames=COLUMNS, restval="", extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: _cell(key, row[key]) for key in row if key in COLUMNS})
+
+
+def main() -> None:
+    """sweepしてrows.jsonとrows.csvへ保存する。"""
+    points = [
+        # GF(2^8), |F*| = 255
+        Params(
+            p=2,
+            r=8,
+            f=(1, 1, 1, 0, 0, 0, 0, 1, 1),
+            q=255,
+            g=(0, 1, 0, 0, 0, 0, 0, 0),
+            h=(1, 1, 0, 0, 1, 0, 1, 1),
+        ),
+        # GF(3^5), |F*| = 242
+        Params(
+            p=3,
+            r=5,
+            f=(1, 2, 0, 0, 0, 1),
+            q=242,
+            g=(0, 1, 0, 0, 0),
+            h=(2, 1, 1, 2, 2),
+        ),
+        # GF(251), |F*| = 250
+        Params(
+            p=251,
+            r=1,
+            f=(0, 1),
+            q=250,
+            g=(6,),
+            h=(29,),
+        ),
+        # GF(2^12), |F*| = 4095
+        Params(
+            p=2,
+            r=12,
+            f=(1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1),
+            q=4095,
+            g=(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            h=(0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1),
+        ),
+        # GF(5^5), |F*| = 3124
+        Params(
+            p=5,
+            r=5,
+            f=(2, 4, 0, 0, 0, 1),
+            q=3124,
+            g=(0, 1, 0, 0, 0),
+            h=(2, 4, 4, 2, 3),
+        ),
+        # GF(4093), |F*| = 4092
+        Params(
+            p=4093,
+            r=1,
+            f=(0, 1),
+            q=4092,
+            g=(2,),
+            h=(3123,),
+        ),
+        # GF(2^16), |F*| = 65535
+        Params(
+            p=2,
+            r=16,
+            f=(1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1),
+            q=65535,
+            g=(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            h=(0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0),
+        ),
+        # GF(3^10), |F*| = 59048
+        Params(
+            p=3,
+            r=10,
+            f=(2, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1),
+            q=59048,
+            g=(0, 1, 0, 0, 0, 0, 0, 0, 0, 0),
+            h=(2, 0, 1, 0, 1, 2, 0, 2, 1, 0),
+        ),
+        # GF(65521), |F*| = 65520
+        Params(
+            p=65521,
+            r=1,
+            f=(0, 1),
+            q=65520,
+            g=(17,),
+            h=(21357,),
+        ),
+    ]
+
+    rows = sweep(points)
+
+    out_dir = Path(__file__).resolve().parent.parent / "results" / "sweep_toy"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "rows.json").write_text(json.dumps(rows, indent=2))
+    write_csv(rows, out_dir / "rows.csv")
+
+    n_ok = sum(1 for row in rows if "error" not in row)
+    print(f"rows: {len(rows)} (ok={n_ok}), saved to: {out_dir}")
+
+
+if __name__ == "__main__":
+    main()

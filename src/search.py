@@ -1,4 +1,3 @@
-import itertools
 from dataclasses import asdict, dataclass
 from typing import NotRequired, TypedDict
 
@@ -63,10 +62,9 @@ def eval_point(params: Params) -> EvalRow:
     )
 
 
-def sweep(grid: dict[str, list]) -> list[dict]:
+def sweep(points: list[Params]) -> list[dict]:
     rows = []
-    for vals in itertools.product(*grid.values()):
-        params = Params(**dict(zip(grid.keys(), vals, strict=True)))
+    for params in points:
         try:
             rows.append(eval_point(params))
         except Exception as e:

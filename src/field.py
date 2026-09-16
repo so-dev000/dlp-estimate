@@ -55,6 +55,21 @@ def _galois_field(spec: FieldSpec) -> type[galois.FieldArray]:
     return galois.GF(spec.p, spec.r, irreducible_poly=poly, compile="python-calculate")
 
 
+def format_polynomial(coeffs: PolynomialCoefficients) -> str:
+    """低次数順の係数tupleを多項式文字列表現にする。例: (2, 0, 1) -> "2 + X^2"。"""
+    terms = []
+    for power, coeff in enumerate(coeffs):
+        if coeff == 0:
+            continue
+        if power == 0:
+            terms.append(str(coeff))
+        elif power == 1:
+            terms.append("X" if coeff == 1 else f"{coeff}*X")
+        else:
+            terms.append(f"X^{power}" if coeff == 1 else f"{coeff}*X^{power}")
+    return " + ".join(terms) if terms else "0"
+
+
 def _validate_element(a: FieldElement, spec: FieldSpec) -> None:
     if not isinstance(a, tuple) or len(a) != spec.r:
         raise ValueError(f"field element must be a tuple of length {spec.r}")

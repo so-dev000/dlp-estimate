@@ -13,6 +13,7 @@ from src.field import (
     embedding_degree,
     encode,
     factorize,
+    format_polynomial,
 )
 
 
@@ -188,6 +189,20 @@ def test_factorize_returns_sorted_prime_exponents() -> None:
 def test_factorize_rejects_non_integer_greater_than_one(q: object) -> None:
     with pytest.raises(ValueError, match="q must be an integer > 1"):
         factorize(q)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("coeffs", "expected"),
+    [
+        pytest.param((0, 1), "X", id="prime-field"),
+        pytest.param((1, 0, 1), "1 + X^2", id="quadratic"),
+        pytest.param((2, 0, 1), "2 + X^2", id="nontrivial-constant"),
+        pytest.param((2, 1, 0, 0, 1), "2 + X + X^4", id="sparse"),
+        pytest.param((0, 0), "0", id="zero"),
+    ],
+)
+def test_format_polynomial(coeffs: PolynomialCoefficients, expected: str) -> None:
+    assert format_polynomial(coeffs) == expected
 
 
 @pytest.fixture
