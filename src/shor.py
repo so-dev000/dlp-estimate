@@ -7,8 +7,7 @@ from qualtran.bloqs.basic_gates import CNOT, Hadamard, MeasureZ, XGate
 from qualtran.bloqs.qft import QFTTextBook
 from qualtran.simulation.classical_sim import ClassicalValT
 
-from src.arithmetic import get_controlled_const_mul
-
+from .arithmetic import get_controlled_const_mul
 from .field import Bits, DLPInstance, FieldElement, FieldSpec, FiniteField, encode
 
 

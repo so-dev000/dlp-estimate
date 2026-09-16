@@ -39,7 +39,7 @@ class FieldSpec:
 
     @property
     def coefficient_bits(self) -> int:
-        """1係数のビット幅を返す。p自体を表現できるようp.bit_length()とする。"""
+        """標数2では1ビット、奇標数では法pも表現できるp.bit_length()ビットを返す。"""
         return 1 if self.p == 2 else self.p.bit_length()
 
 

@@ -2,8 +2,9 @@ from functools import cached_property
 
 import attrs
 import numpy as np
-from qualtran import Bloq, BloqBuilder, QBit, QUInt, Register, Signature, SoquetT
+from qualtran import QGF, Bloq, BloqBuilder, QBit, QUInt, Register, Signature, SoquetT
 from qualtran.bloqs.basic_gates import CSwap
+from qualtran.bloqs.gf_arithmetic import GF2MulK
 from qualtran.bloqs.mod_arithmetic import CtrlScaleModAdd
 from qualtran.simulation.classical_sim import ClassicalValT
 
@@ -57,7 +58,7 @@ class ControlledLinearMapAdd(Bloq):
         n = self.spec.coefficient_bits
         p = self.spec.p
 
-        # ===== O(n^2)の呼び出しで非効率. Windowingという方法で減らせる? =====
+        # ===== O(r^2)の呼び出しで非効率. Windowingという方法で減らせる? =====
         for j in range(self.spec.r):
             for i in range(self.spec.r):
                 coefficient = self.matrix[i][j]
@@ -257,7 +258,27 @@ class ControlledGF2ConstMul(Bloq):
         )
 
     def build_composite_bloq(self, bb: BloqBuilder, **soqs: SoquetT) -> dict[str, SoquetT]:
-        raise NotImplementedError()
+        ctrl = soqs["ctrl"]
+        x = soqs["x"]
+
+        if self.c == self.field.one:
+            return {"ctrl": ctrl, "x": x}
+
+        constant = self.field.to_galois(self.c)
+        polynomial = type(constant).irreducible_poly
+        qgf = QGF(2, self.spec.r, polynomial)
+        multiplication = GF2MulK(dtype=qgf, const=int(constant)).controlled()
+
+        assert isinstance(x, np.ndarray)
+
+        # QGFのビット列は高次数順なので、外部の係数ビットを反転してjoinし、出力をsplitして再び反転
+        bits = np.array([bb.split(coefficient)[0] for coefficient in x], dtype=object)
+        g = bb.join(bits[::-1], dtype=qgf)
+        ctrl, g = bb.add_t(multiplication, ctrl=ctrl, g=g)
+
+        bits = bb.split(g)[::-1]
+        x = np.array([bb.join([bit], dtype=QUInt(1)) for bit in bits], dtype=object)
+        return {"ctrl": ctrl, "x": x}
 
     def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         r, p = self.spec.r, self.spec.p
@@ -291,7 +312,7 @@ class ControlledGF2ConstMul(Bloq):
 
 
 def get_controlled_const_mul(spec: FieldSpec, c: FieldElement) -> Bloq:
-    """GF(2)ではControlledGF2ConstMul、それ以外ではControlledConstMulを返す。"""
+    """標数2ではGF(2^r)専用、それ以外では奇標数用の制御付き定数乗算を返す。"""
     if spec.p == 2:
         return ControlledGF2ConstMul(spec=spec, c=c)
     return ControlledConstMul(spec=spec, c=c)
