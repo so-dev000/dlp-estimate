@@ -20,14 +20,18 @@ class Params:
 
 
 class EvalRow(TypedDict):
+    # DLP instance
     p: int
     r: int
     f: PolynomialCoefficients
     q: int
     g: FieldElement
     h: FieldElement
+    # Shor configuration
     exponent_bits: int
+    # Logical resources
     logical_qubits: int
+    # Raw gate counts
     t: int
     toffoli: int
     cswap: int
@@ -35,6 +39,10 @@ class EvalRow(TypedDict):
     clifford: int
     rotation: int
     measurement: int
+    # Normalized gate counts
+    ccz: int
+    t_equiv_default: int
+    # Error message
     error: NotRequired[str]
 
 
@@ -58,6 +66,8 @@ def eval_point(params: Params) -> EvalRow:
         and_bloq=int(resource.gates.and_bloq),
         clifford=int(resource.gates.clifford),
         rotation=int(resource.gates.rotation),
+        ccz=resource.ccz,
+        t_equiv_default=resource.t_equiv_default,
         measurement=int(resource.gates.measurement),
     )
 

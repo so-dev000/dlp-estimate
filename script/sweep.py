@@ -3,26 +3,9 @@ import json
 from pathlib import Path
 
 from src.field import format_polynomial
-from src.search import Params, sweep
+from src.search import EvalRow, Params, sweep
 
-COLUMNS = [
-    "p",
-    "r",
-    "f",
-    "q",
-    "g",
-    "h",
-    "exponent_bits",
-    "logical_qubits",
-    "t",
-    "toffoli",
-    "cswap",
-    "and_bloq",
-    "clifford",
-    "rotation",
-    "measurement",
-    "error",
-]
+COLUMNS = list(EvalRow.__annotations__)
 
 
 def _cell(key: str, value: object) -> object:
