@@ -159,24 +159,11 @@ def decode(bits: Bits, spec: FieldSpec) -> FieldElement:
     return tuple(coefficients)
 
 
-def _validate_factorization(q: int, factors: Factorization) -> None:
-    remaining = q
-    previous_prime = 1
-    for pair in factors:
-        if not isinstance(pair, tuple) or len(pair) != 2:
-            raise ValueError("each factor must be a (prime, exponent) tuple")
-        prime, exponent = pair
-        if type(prime) is not int or prime <= previous_prime or not isprime(prime):
-            raise ValueError("q_factors must contain distinct primes in increasing order")
-        if type(exponent) is not int or exponent < 1:
-            raise ValueError("factor exponents must be positive integers")
-        for _ in range(exponent):
-            remaining, remainder = divmod(remaining, prime)
-            if remainder:
-                raise ValueError("q_factors must be the complete factorization of q")
-        previous_prime = prime
-    if remaining != 1:
-        raise ValueError("q_factors must be the complete factorization of q")
+def factorize(q: int) -> Factorization:
+    """q > 1 を素因数分解し、(prime, exponent)の昇順tupleで返す。"""
+    if type(q) is not int or q <= 1:
+        raise ValueError("q must be an integer > 1")
+    return tuple(sorted((int(prime), int(exponent)) for prime, exponent in factorint(q).items()))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -185,22 +172,20 @@ class DLPInstance:
 
     spec: FieldSpec
     q: int  # gの位数
-    q_factors: Factorization
     g: FieldElement
     h: FieldElement
 
     def __post_init__(self) -> None:
-        """体・qの因数分解・gの位数q・hの部分群所属を検証する。"""
+        """体・gの位数q・hの部分群所属を検証する。"""
         if type(self.q) is not int or self.q <= 1:
             raise ValueError("q must be an integer > 1")
-        _validate_factorization(self.q, self.q_factors)
 
         field = FiniteField(self.spec)
         g = field.to_galois(self.g)
         h = field.to_galois(self.h)
         if g**self.q != 1:
             raise ValueError("q must be the order of g")
-        for prime, _ in self.q_factors:
+        for prime, _ in factorize(self.q):
             if g ** (self.q // prime) == 1:
                 raise ValueError("q must be the order of g")
         if h**self.q != 1:

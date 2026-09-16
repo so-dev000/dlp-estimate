@@ -16,7 +16,6 @@ def composite_order_instance() -> DLPInstance:
     return DLPInstance(
         spec=FieldSpec(p=101, r=1, f=(0, 1)),
         q=100,
-        q_factors=((2, 2), (5, 2)),
         g=(2,),
         h=(48,),
     )
@@ -43,7 +42,6 @@ def test_pohlig_hellman_solves_proper_subgroup_in_extension_field() -> None:
     instance = DLPInstance(
         spec=FieldSpec(p=5, r=2, f=(2, 0, 1)),
         q=8,
-        q_factors=((2, 3),),
         g=(0, 1),
         h=(0, 3),
     )

@@ -12,7 +12,6 @@ spec = FieldSpec(p=p, r=2, f=(1, 0, 1))
 instance = DLPInstance(
     spec=spec,
     q=spec.order - 1,
-    q_factors=((2, 3),),
     g=(1, 1),
     h=(1, 2),
 )

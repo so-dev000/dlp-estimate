@@ -1,7 +1,7 @@
 import random
 
 from src.classical.pollard_rho import pollard_rho
-from src.field import DLPInstance, FieldElement, FiniteField
+from src.field import DLPInstance, FieldElement, FiniteField, factorize
 
 type PollardRhoState = tuple[FieldElement, int, int]
 
@@ -19,7 +19,7 @@ def solve_pohlig_hellman(instance: DLPInstance, *, seed: int = 0) -> int:
 
     rng = random.Random(seed)
     congruences = []
-    for prime, exponent in instance.q_factors:
+    for prime, exponent in factorize(instance.q):
         sub_log = _solve_prime_power(field, instance, prime, exponent, rng=rng)
         sub_order = prime**exponent
         congruences.append((sub_log, sub_order))

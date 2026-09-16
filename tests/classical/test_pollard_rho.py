@@ -66,7 +66,6 @@ def test_pohlig_hellman_solves_subgroup_with_degenerate_hash_partition() -> None
     instance = DLPInstance(
         spec=FieldSpec(p=31, r=1, f=(0, 1)),
         q=30,
-        q_factors=((2, 1), (3, 1), (5, 1)),
         g=(3,),
         h=(9,),
     )

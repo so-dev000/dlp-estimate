@@ -5,7 +5,6 @@ import pytest
 from src.field import (
     Bits,
     DLPInstance,
-    Factorization,
     FieldElement,
     FieldSpec,
     FiniteField,
@@ -13,6 +12,7 @@ from src.field import (
     decode,
     embedding_degree,
     encode,
+    factorize,
 )
 
 
@@ -155,16 +155,13 @@ def test_decode_rejects_invalid_bits(gf25: FiniteField, bits: Bits, message: str
 
 
 @pytest.mark.parametrize(
-    ("spec", "order", "factors", "generator", "expected_degree"),
+    ("spec", "order", "generator", "expected_degree"),
     [
-        pytest.param(FieldSpec(p=5, r=1, f=(0, 1)), 4, ((2, 2),), (2,), 1, id="prime-field"),
-        pytest.param(
-            FieldSpec(p=5, r=2, f=(2, 0, 1)), 8, ((2, 3),), (0, 1), 2, id="full-extension"
-        ),
+        pytest.param(FieldSpec(p=5, r=1, f=(0, 1)), 4, (2,), 1, id="prime-field"),
+        pytest.param(FieldSpec(p=5, r=2, f=(2, 0, 1)), 8, (0, 1), 2, id="full-extension"),
         pytest.param(
             FieldSpec(p=3, r=4, f=(2, 1, 0, 0, 1)),
             2,
-            ((2, 1),),
             (2, 0, 0, 0),
             1,
             id="prime-subfield-with-repeated-degree-reduction",
@@ -174,15 +171,23 @@ def test_decode_rejects_invalid_bits(gf25: FiniteField, bits: Bits, message: str
 def test_embedding_degree_is_smallest_degree_containing_subgroup(
     spec: FieldSpec,
     order: int,
-    factors: Factorization,
     generator: FieldElement,
     expected_degree: int,
 ) -> None:
-    instance = DLPInstance(
-        spec=spec, q=order, q_factors=factors, g=generator, h=FiniteField(spec).one
-    )
+    instance = DLPInstance(spec=spec, q=order, g=generator, h=FiniteField(spec).one)
 
     assert embedding_degree(instance) == expected_degree
+
+
+def test_factorize_returns_sorted_prime_exponents() -> None:
+    assert factorize(100) == ((2, 2), (5, 2))
+    assert factorize(2) == ((2, 1),)
+
+
+@pytest.mark.parametrize("q", [0, 1, -7, 2.0, "12"])
+def test_factorize_rejects_non_integer_greater_than_one(q: object) -> None:
+    with pytest.raises(ValueError, match="q must be an integer > 1"):
+        factorize(q)  # type: ignore[arg-type]
 
 
 @pytest.fixture
@@ -191,27 +196,9 @@ def order_two_instance() -> DLPInstance:
     return DLPInstance(
         spec=FieldSpec(p=5, r=1, f=(0, 1)),
         q=2,
-        q_factors=((2, 1),),
         g=(4,),
         h=(1,),
     )
-
-
-@pytest.mark.parametrize(
-    ("factors", "message"),
-    [
-        pytest.param(((2,),), "each factor must be", id="malformed-pair"),
-        pytest.param(((4, 1),), "distinct primes in increasing order", id="non-prime"),
-        pytest.param(((2, 0),), "positive integers", id="invalid-exponent"),
-        pytest.param(((2, 2),), "complete factorization", id="excess-factor"),
-        pytest.param((), "complete factorization", id="missing-factor"),
-    ],
-)
-def test_dlp_rejects_invalid_factorization(
-    order_two_instance: DLPInstance, factors: object, message: str
-) -> None:
-    with pytest.raises(ValueError, match=message):
-        replace(order_two_instance, q_factors=factors)
 
 
 def test_dlp_requires_order_greater_than_one(order_two_instance: DLPInstance) -> None:

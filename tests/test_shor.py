@@ -18,7 +18,7 @@ from src.shor import DLPOracle, FieldExponentiation, ShorDLP, make_shor_config
 def instance() -> DLPInstance:
     """GF(5) の部分群 {1, 4} で 4^d = 1 を解く最小入力。"""
     spec = FieldSpec(p=5, r=1, f=(0, 1))
-    return DLPInstance(spec=spec, q=2, q_factors=((2, 1),), g=(4,), h=(1,))
+    return DLPInstance(spec=spec, q=2, g=(4,), h=(1,))
 
 
 def test_make_shor_config_defaults_to_minimum_bits(instance: DLPInstance) -> None:
@@ -87,7 +87,7 @@ def test_oracle_decomposition_is_valid(instance: DLPInstance) -> None:
 def toy_instance() -> DLPInstance:
     """GF(5)、g=2、h=3、q=4 の toy 入力。既知解は 3。"""
     spec = FieldSpec(p=5, r=1, f=(0, 1))
-    return DLPInstance(spec=spec, q=4, q_factors=((2, 2),), g=(2,), h=(3,))
+    return DLPInstance(spec=spec, q=4, g=(2,), h=(3,))
 
 
 def test_shor_dlp_signature(toy_instance: DLPInstance) -> None:
