@@ -11,8 +11,8 @@ uv sync --locked
 ## スクリプト実行
 
 ```bash
-uv run python script/sweep.py  # 複数入力の資源見積り → results/sweep_toy/rows.json・rows.csv
-uv run python script/show_call_graph.py  # Qualtran call-graph 表示
+uv run python script/sweep.py  # 複数入力の資源見積り
+uv run python script/show_call_graph.py  # call-graph 表示
 ```
 
 ## フォルダ構成
