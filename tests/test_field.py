@@ -91,7 +91,7 @@ def test_galois_conversion_preserves_coefficient_order(gf25: FiniteField) -> Non
 
 def test_from_galois_requires_scalar_from_same_field(gf25: FiniteField) -> None:
     scalar = gf25.to_galois((3, 1))
-    vector = type(scalar)([scalar])
+    vector = type(scalar)([scalar])  # 同じ体の1次元ベクトル(スカラーではない)。
     other_field = FiniteField(FieldSpec(p=5, r=1, f=(0, 1)))
 
     with pytest.raises(ValueError, match="galois scalar belonging to this field"):
