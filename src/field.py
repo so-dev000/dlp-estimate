@@ -174,6 +174,7 @@ def decode(bits: Bits, spec: FieldSpec) -> FieldElement:
     return tuple(coefficients)
 
 
+# TODO: ボトルネックになるので将来的には入力を検証済みとして削除する
 def factorize(q: int) -> Factorization:
     """q > 1 を素因数分解し、(prime, exponent)の昇順tupleで返す。"""
     if type(q) is not int or q <= 1:
