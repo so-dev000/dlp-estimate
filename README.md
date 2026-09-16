@@ -11,7 +11,8 @@ uv sync --locked
 ## スクリプト実行
 
 ```bash
-uv run script/show_call_graph.py
+uv run python script/sweep.py  # 複数入力の資源見積り → results/sweep_toy/rows.json・rows.csv
+uv run python script/show_call_graph.py  # Qualtran call-graph 表示
 ```
 
 ## フォルダ構成
@@ -19,17 +20,21 @@ uv run script/show_call_graph.py
 ```text
 dlp-estimate/
 ├── script/
-│   └── show_call_graph.py   # Qualtran call-graph 表示用スクリプト
+│   ├── sweep.py             # 複数入力の資源見積り
+│   └── show_call_graph.py   # call-graph表示
 ├── src/
 │   ├── __init__.py
 │   ├── field.py             # 有限体演算・符号化・DLP 入力の検証
 │   ├── arithmetic.py        # Qualtran による有限体演算回路
 │   ├── shor.py              # Shor-DLP
 │   ├── logical_resources.py # 論理リソース見積り
+│   ├── search.py            # parameter sweep
 │   └── classical/
 │       ├── __init__.py
 │       ├── pohling_hellman.py  # Pohlig–Hellman 法
 │       └── pollard_rho.py      # Pollard rho 法
+├── results/
+│   └── sweep_toy/           # sweep.py の出力 (rows.json・rows.csv)
 └── tests/ # リグレッション防止目的 (一旦Codexで作成・要確認)
     ├── __init__.py
     ├── test_field.py
