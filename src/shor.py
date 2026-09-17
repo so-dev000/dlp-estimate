@@ -2,8 +2,8 @@ from functools import cached_property
 
 import attrs
 import numpy as np
-from qualtran import Bloq, BloqBuilder, CBit, QBit, QUInt, Register, Side, Signature, SoquetT
-from qualtran.bloqs.basic_gates import CNOT, Hadamard, MeasureZ, XGate
+from qualtran import Bloq, BloqBuilder, QBit, QUInt, Register, Side, Signature, SoquetT
+from qualtran.bloqs.basic_gates import CNOT, Hadamard, XGate
 from qualtran.bloqs.qft import QFTTextBook
 from qualtran.simulation.classical_sim import ClassicalValT
 
@@ -301,16 +301,11 @@ class ShorDLP(Bloq):
           -> DLPOracleを適用
           -> (1/2^m) Σ_{a,b} |a>|b>|y=encode(h^a g^b)>
           -> QFT^{-1}をa, bに適用
-          -> a, bを測定
-          -> |A>|B>|y>
+          -> |a>|b>|y>
     """
 
     instance: DLPInstance
     config: ShorConfig
-
-    @cached_property
-    def field(self) -> FiniteField:
-        return FiniteField(self.instance.spec)
 
     @property
     def signature(self) -> Signature:
@@ -319,8 +314,8 @@ class ShorDLP(Bloq):
         r = self.instance.spec.r
         return Signature(
             [
-                Register("a", CBit(), (m,), Side.RIGHT),
-                Register("b", CBit(), (m,), Side.RIGHT),
+                Register("a", QUInt(m), side=Side.RIGHT),
+                Register("b", QUInt(m), side=Side.RIGHT),
                 Register("y", QBit(), (r * n,), Side.RIGHT),
             ]
         )
@@ -354,12 +349,4 @@ class ShorDLP(Bloq):
         (a,) = bb.add_t(QFTTextBook(bitsize=m, with_reverse=True).adjoint(), q=a)
         (b,) = bb.add_t(QFTTextBook(bitsize=m, with_reverse=True).adjoint(), q=b)
 
-        # Z測定
-        a_bits = bb.split(a)
-        b_bits = bb.split(b)
-        a_clas = np.empty(m, dtype=object)
-        b_clas = np.empty(m, dtype=object)
-        for i in range(m):
-            a_clas[i] = bb.add(MeasureZ(), q=a_bits[i])
-            b_clas[i] = bb.add(MeasureZ(), q=b_bits[i])
-        return {"a": a_clas, "b": b_clas, "y": y}
+        return {"a": a, "b": b, "y": y}

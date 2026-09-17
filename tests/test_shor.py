@@ -2,7 +2,7 @@ from collections import Counter
 
 import numpy as np
 import pytest
-from qualtran import CBit, QBit, Side
+from qualtran import QBit, QUInt, Side
 from qualtran._infra.adjoint import Adjoint
 from qualtran.bloqs.qft import QFTTextBook
 from qualtran.testing import (
@@ -98,8 +98,8 @@ def test_shor_dlp_signature(toy_instance: DLPInstance) -> None:
 
     assert set(regs) == {"a", "b", "y"}
     for name in ("a", "b"):
-        assert regs[name].dtype == CBit()
-        assert regs[name].shape == (config.exponent_bits,)
+        assert regs[name].dtype == QUInt(config.exponent_bits)
+        assert regs[name].shape == ()
         assert regs[name].side == Side.RIGHT
     assert regs["y"].dtype == QBit()
     assert regs["y"].shape == (width,)
@@ -107,17 +107,17 @@ def test_shor_dlp_signature(toy_instance: DLPInstance) -> None:
 
 
 def test_shor_dlp_decomposition_structure(toy_instance: DLPInstance) -> None:
-    # Qualtran 0.7.0 の assert_valid_bloq_decomposition は CBit の RIGHT 出力を
-    # 拒否するため(CompositeBloq の接続検査が num_qubits > 0 を要求)、
-    # ShorDLP については構築成功と部品構成で検証する。
+    # ShorDLP は RIGHT 出力だが QUInt/QBit なので num_qubits > 0 を満たし、
+    # assert_valid_bloq_decomposition で検証できる。部品構成も併せて確認する。
     config = make_shor_config(toy_instance)
     bloq = ShorDLP(instance=toy_instance, config=config)
+    assert_valid_bloq_decomposition(bloq)
     bloqs = [binst.bloq for binst in bloq.decompose_bloq().bloq_instances]
     counts = Counter(type(b).__name__ for b in bloqs)
 
     assert counts["DLPOracle"] == 1  # oracle は1回
     assert counts["Hadamard"] == 2 * config.exponent_bits
-    assert counts["MeasureZ"] == 2 * config.exponent_bits
+    assert counts.get("MeasureZ", 0) == 0  # 測定は含まない
     inverse_qfts = [b for b in bloqs if isinstance(b, Adjoint)]
     assert len(inverse_qfts) == 2  # a・b への逆QFT
     assert all(isinstance(b.subbloq, QFTTextBook) for b in inverse_qfts)
