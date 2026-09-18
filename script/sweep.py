@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from src.field import format_polynomial
-from src.search import EvalRow, Params, sweep
+from src.resource_estimate.search import EvalRow, Params, sweep
 
 COLUMNS = list(EvalRow.__annotations__)
 

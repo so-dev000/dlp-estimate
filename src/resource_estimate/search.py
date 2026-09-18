@@ -1,9 +1,9 @@
 from dataclasses import asdict, dataclass
 from typing import NotRequired, TypedDict
 
-from .field import DLPInstance, FieldElement, FieldSpec, PolynomialCoefficients
+from ..field import DLPInstance, FieldElement, FieldSpec, PolynomialCoefficients
+from ..shor import ShorDLP, make_shor_config
 from .logical_resources import estimate_resources
-from .shor import ShorDLP, make_shor_config
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -77,6 +77,7 @@ def sweep(points: list[Params]) -> list[dict]:
     for params in points:
         try:
             rows.append(eval_point(params))
+            print(f"Evaluated: {params}")
         except Exception as e:
             rows.append(asdict(params) | {"error": f"{type(e).__name__}: {e}"})
     return rows
