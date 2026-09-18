@@ -6,11 +6,16 @@ readme = "README.md"
 requires-python = "==3.14.4"
 dependencies = [
     "galois==0.4.11",
+    "graphviz>=0.20",
     "matplotlib==3.11.1",
     "numpy==2.5.2",
+    "pandas>=2.0",
+    "plotly>=5.0",
     "pytest==9.1.1",
     "pytest-cov>=7.1.0",
+    "qret-cli-bundle",
     "qualtran==0.7.0",
+    "streamlit>=1.30",
     "sympy==1.14.0",
 ]
 
@@ -36,6 +41,9 @@ docstring-code-format = true
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.uv.sources]
+qret-cli-bundle = { git = "https://github.com/QunaSys/quration-cli-bundle.git" }
 
 [dependency-groups]
 dev = [
