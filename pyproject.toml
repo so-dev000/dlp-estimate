@@ -19,6 +19,7 @@ dependencies = [
     "quri-parts-qsub==0.27.0",
     "streamlit==1.64.0",
     "sympy==1.14.0",
+    "watchdog>=6.0.0",
 ]
 
 [build-system]
