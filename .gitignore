@@ -36,6 +36,7 @@ htmlcov/
 
 .vscode/
 .idea/
+.zed/
 
 .DS_Store
 
@@ -61,3 +62,7 @@ htmlcov/
 .env
 .env.*
 !.env.example
+
+# classical solvers (local only)
+src/_classical/
+tests/_classical/
