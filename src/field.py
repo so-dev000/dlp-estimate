@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import cache
 
 import galois
 from sympy import factorint, isprime
@@ -145,6 +146,11 @@ class FiniteField:
         return tuple(tuple(column[i] for column in columns) for i in range(r))
 
 
+@cache
+def shared_field(spec: FieldSpec) -> FiniteField:
+    return FiniteField(spec)
+
+
 def encode(element: FieldElement, spec: FieldSpec) -> Bits:
     """
     係数を低次数順に、各係数をspec.coefficient_bitsビットのbig-endianで符号化する。
@@ -196,7 +202,7 @@ class DLPInstance:
         if type(self.q) is not int or self.q <= 1:
             raise ValueError("q must be an integer > 1")
 
-        field = FiniteField(self.spec)
+        field = shared_field(self.spec)
         g = field.to_galois(self.g)
         h = field.to_galois(self.h)
         if g**self.q != 1:

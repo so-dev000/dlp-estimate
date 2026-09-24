@@ -1,4 +1,4 @@
-from functools import cached_property
+from functools import cache, cached_property
 
 import attrs
 import numpy as np
@@ -9,7 +9,7 @@ from qualtran.bloqs.gf_arithmetic.gf2_multiplication import SynthesizeLRCircuit
 from qualtran.bloqs.mod_arithmetic import CtrlScaleModAdd
 from qualtran.simulation.classical_sim import ClassicalValT
 
-from .field import FieldElement, FieldMatrix, FieldSpec, FiniteField
+from .field import FieldElement, FieldMatrix, FieldSpec, FiniteField, shared_field
 
 
 @attrs.frozen(kw_only=True)
@@ -37,7 +37,7 @@ class ControlledLinearMapAdd(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        return FiniteField(self.spec)
+        return shared_field(self.spec)
 
     @property
     def signature(self) -> Signature:
@@ -75,7 +75,7 @@ class ControlledLinearMapAdd(Bloq):
 
         return {"ctrl": ctrl, "x": x, "y": y}
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         r, p = self.spec.r, self.spec.p
         ctrl = int(vals["ctrl"])
 
@@ -120,7 +120,7 @@ class ControlledConstMul(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        return FiniteField(self.spec)
+        return shared_field(self.spec)
 
     @property
     def signature(self) -> Signature:
@@ -196,7 +196,7 @@ class ControlledConstMul(Bloq):
 
         return {"ctrl": ctrl, "x": x}
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         r, p = self.spec.r, self.spec.p
         ctrl = int(vals["ctrl"])
 
@@ -228,6 +228,13 @@ class ControlledConstMul(Bloq):
         )
 
 
+@cache
+def _qgf_for_spec(spec: FieldSpec) -> QGF:
+    field = shared_field(spec)
+    polynomial = type(field.to_galois(field.one)).irreducible_poly
+    return QGF(2, spec.r, polynomial)
+
+
 class _GF2MulKWithExplicitSwaps(GF2MulK):
     """Qualtran 0.7.0 で制御 OFF 時にも残る暗黙の置換を、明示的な SWAP に置き換える。
     元のGF2MulKへ戻すとctrl=0でも値が変わる
@@ -255,8 +262,32 @@ class _GF2MulKWithExplicitSwaps(GF2MulK):
         return {"g": bb.join(bits[::-1], dtype=self.dtype)}
 
     def build_call_graph(self, ssa):
-        # SWAP のコストも計上する。
-        return self.decompose_bloq().build_call_graph(ssa)
+        # build_composite_bloq と同じ LUP 由来の数を、分解なしで返す。
+        # 合成回路は CNOT と TwoBitSwap だけからなる。
+        lower, upper, permutation = SynthesizeLRCircuit(self.reduction_matrix_q).lup
+        n = int(self.n)
+        n_cnot = 0
+        for i in range(n):
+            for j in range(i + 1, n):
+                if upper[i, j]:
+                    n_cnot += 1
+        for i in range(n):
+            for j in range(i):
+                if lower[i, j]:
+                    n_cnot += 1
+        columns = list(range(n))
+        n_swap = 0
+        for i in range(n):
+            for j in range(i + 1, n):
+                if permutation[i, columns[j]]:
+                    n_swap += 1
+                    columns[i], columns[j] = columns[j], columns[i]
+        counts: dict[Bloq, int] = {}
+        if n_cnot:
+            counts[CNOT()] = n_cnot
+        if n_swap:
+            counts[TwoBitSwap()] = n_swap
+        return counts
 
 
 @attrs.frozen(kw_only=True)
@@ -278,7 +309,7 @@ class ControlledGF2ConstMul(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        return FiniteField(self.spec)
+        return shared_field(self.spec)
 
     @property
     def signature(self) -> Signature:
@@ -297,8 +328,7 @@ class ControlledGF2ConstMul(Bloq):
             return {"ctrl": ctrl, "x": x}
 
         constant = self.field.to_galois(self.c)
-        polynomial = type(constant).irreducible_poly
-        qgf = QGF(2, self.spec.r, polynomial)
+        qgf = _qgf_for_spec(self.spec)
         multiplication = _GF2MulKWithExplicitSwaps(dtype=qgf, const=int(constant)).controlled()
 
         assert isinstance(x, np.ndarray)
@@ -312,7 +342,7 @@ class ControlledGF2ConstMul(Bloq):
         x = np.array([bb.join([bit], dtype=QUInt(1)) for bit in bits], dtype=object)
         return {"ctrl": ctrl, "x": x}
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         r, p = self.spec.r, self.spec.p
         ctrl = int(vals["ctrl"])
 

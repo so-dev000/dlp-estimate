@@ -8,7 +8,7 @@ from qualtran.bloqs.qft import QFTTextBook
 from qualtran.simulation.classical_sim import ClassicalValT
 
 from .arithmetic import get_controlled_const_mul
-from .field import Bits, DLPInstance, FieldElement, FieldSpec, FiniteField, encode
+from .field import Bits, DLPInstance, FieldElement, FieldSpec, FiniteField, encode, shared_field
 
 
 @attrs.frozen(kw_only=True)
@@ -82,7 +82,7 @@ class FieldExponentiation(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        return FiniteField(self.spec)
+        return shared_field(self.spec)
 
     @property
     def signature(self) -> Signature:
@@ -114,7 +114,7 @@ class FieldExponentiation(Bloq):
             "x": x,
         }
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         r, p = self.spec.r, self.spec.p
         exponent = int(vals["exponent"])
 
@@ -179,7 +179,7 @@ class DLPOracle(Bloq):
 
     @cached_property
     def field(self) -> FiniteField:
-        return FiniteField(self.instance.spec)
+        return shared_field(self.instance.spec)
 
     @property
     def signature(self) -> Signature:
@@ -258,7 +258,7 @@ class DLPOracle(Bloq):
 
         return {"a": a, "b": b, "y": y}
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         m = self.exponent_bits
         r, n = self.instance.spec.r, self.instance.spec.coefficient_bits
         a = int(vals["a"])

@@ -3,7 +3,11 @@ from typing import Any, NotRequired, TypedDict
 
 from ..field import DLPInstance, FieldElement, FieldSpec, PolynomialCoefficients
 from ..shor import ShorDLP, make_shor_config
-from .qualtran_resources import estimate_resources
+from .qualtran_resources import (
+    QualtranPhysicalConfig,
+    estimate_logical_resources,
+    estimate_physical_resources,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -42,15 +46,25 @@ class EvalRow(TypedDict):
     # Normalized gate counts
     ccz: int
     t_equiv_default: int
+    # Physical resources
+    physical_qubits: int
+    n_cycles: int
+    duration_hr: float
+    failure_prob: float
+    code_distance: int
     # Error message
     error: NotRequired[str]
 
 
-def eval_point(params: Params) -> EvalRow:
+def eval_point(
+    params: Params,
+    physical_config: QualtranPhysicalConfig,
+) -> EvalRow:
     spec = FieldSpec(p=params.p, r=params.r, f=params.f)
     instance = DLPInstance(spec=spec, q=params.q, g=params.g, h=params.h)
     config = make_shor_config(instance, exponent_bits=params.exponent_bits)
-    resource = estimate_resources(ShorDLP(instance=instance, config=config))
+    resource = estimate_logical_resources(ShorDLP(instance=instance, config=config))
+    physical = estimate_physical_resources(resource, physical_config)
     return EvalRow(
         p=params.p,
         r=params.r,
@@ -69,14 +83,22 @@ def eval_point(params: Params) -> EvalRow:
         ccz=resource.ccz,
         t_equiv_default=resource.t_equiv_default,
         measurement=int(resource.gates.measurement),
+        physical_qubits=physical.physical_qubits,
+        n_cycles=physical.n_cycles,
+        duration_hr=physical.duration_hr,
+        failure_prob=physical.failure_prob,
+        code_distance=physical.code_distance,
     )
 
 
-def sweep(points: list[Params]) -> list[dict[str, Any]]:
+def sweep(
+    points: list[Params],
+    physical_config: QualtranPhysicalConfig,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for params in points:
         try:
-            rows.append(dict(eval_point(params)))
+            rows.append(dict(eval_point(params, physical_config)))
             print(f"Evaluated: {params}")
         except Exception as e:
             rows.append(asdict(params) | {"error": f"{type(e).__name__}: {e}"})

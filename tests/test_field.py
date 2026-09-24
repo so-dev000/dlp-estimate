@@ -188,7 +188,7 @@ def test_factorize_returns_sorted_prime_exponents() -> None:
 @pytest.mark.parametrize("q", [0, 1, -7, 2.0, "12"])
 def test_factorize_rejects_non_integer_greater_than_one(q: object) -> None:
     with pytest.raises(ValueError, match="q must be an integer > 1"):
-        factorize(q)  # ty: ignore[invalid-argument-type]
+        factorize(q)
 
 
 @pytest.mark.parametrize(

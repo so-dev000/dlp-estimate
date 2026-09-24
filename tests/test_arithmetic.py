@@ -5,6 +5,7 @@ import pytest
 from qualtran import Bloq, Controlled
 from qualtran.bloqs.gf_arithmetic import GF2MulK
 from qualtran.resource_counting import QECGatesCost, QubitCount, get_cost_value
+from qualtran.resource_counting._call_graph import get_bloq_callee_counts
 from qualtran.simulation.classical_sim import ClassicalValT
 from qualtran.testing import (
     assert_consistent_classical_action,
@@ -173,6 +174,39 @@ def test_gf4_resources_include_controlled_permutation() -> None:
     costs = get_cost_value(bloq, QECGatesCost(legacy_shims=False))
     assert costs.toffoli == 1
     assert costs.cswap == 1
+
+
+@pytest.mark.parametrize(
+    ("spec", "constant"),
+    [
+        (FieldSpec(p=2, r=2, f=(1, 1, 1)), (0, 1)),
+        (FieldSpec(p=2, r=2, f=(1, 1, 1)), (1, 1)),
+        (FieldSpec(p=2, r=4, f=(1, 1, 0, 0, 1)), (0, 1, 0, 0)),
+        (FieldSpec(p=2, r=4, f=(1, 1, 0, 0, 1)), (1, 0, 1, 1)),
+    ],
+)
+def test_call_graph_matches_decomposition_counts(
+    spec: FieldSpec, constant: tuple[int, ...]
+) -> None:
+    """手書き build_call_graph が分解由来の CNOT・SWAP 数と一致する。"""
+    bloq = ControlledGF2ConstMul(spec=spec, c=constant)
+    inner = next(
+        instance.bloq
+        for instance in bloq.decompose_bloq().bloq_instances
+        if isinstance(instance.bloq, Controlled)
+    ).subbloq
+
+    reference = {
+        type(callee).__name__: count
+        for callee, count in dict(get_bloq_callee_counts(inner.decompose_bloq())).items()
+    }
+    actual = {
+        type(callee).__name__: count for callee, count in inner.build_call_graph(None).items()
+    }
+
+    assert actual.get("CNOT", 0) == reference.get("CNOT", 0)
+    assert actual.get("TwoBitSwap", 0) == reference.get("TwoBitSwap", 0)
+    assert set(actual) <= {"CNOT", "TwoBitSwap"}
 
 
 @pytest.mark.parametrize(
