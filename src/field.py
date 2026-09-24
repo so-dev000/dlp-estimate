@@ -43,6 +43,11 @@ class FieldSpec:
         """標数2では1ビット、奇標数では法pも表現できるp.bit_length()ビットを返す。"""
         return 1 if self.p == 2 else self.p.bit_length()
 
+    @property
+    def field_bits(self) -> int:
+        """ceil(log2(p**r)) を返す。"""
+        return (self.order - 1).bit_length()
+
 
 def _galois_field(spec: FieldSpec) -> type[galois.FieldArray]:
     """pの素数性を検証し、既約性の検証をgaloisに任せて体を構築する。"""

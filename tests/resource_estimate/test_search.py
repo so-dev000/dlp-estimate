@@ -34,6 +34,7 @@ def test_eval_point_returns_all_columns(
     assert row["r"] == 1
     assert row["f"] == (0, 1)
     assert row["q"] == 2
+    assert row["field_bits"] == 3
     assert row["logical_qubits"] > 0
     assert row["ccz"] == row["toffoli"] + row["cswap"] + row["and_bloq"]
     assert "error" not in row

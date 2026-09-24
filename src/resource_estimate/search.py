@@ -1,3 +1,4 @@
+import contextlib
 from dataclasses import asdict, dataclass
 from typing import Any, NotRequired, TypedDict
 
@@ -31,6 +32,7 @@ class EvalRow(TypedDict):
     q: int
     g: FieldElement
     h: FieldElement
+    field_bits: int
     # Shor configuration
     exponent_bits: int
     # Logical resources
@@ -72,6 +74,7 @@ def eval_point(
         q=params.q,
         g=params.g,
         h=params.h,
+        field_bits=spec.field_bits,
         exponent_bits=config.exponent_bits,
         logical_qubits=resource.logical_qubits,
         t=int(resource.gates.t),
@@ -101,5 +104,9 @@ def sweep(
             rows.append(dict(eval_point(params, physical_config)))
             print(f"Evaluated: {params}")
         except Exception as e:
-            rows.append(asdict(params) | {"error": f"{type(e).__name__}: {e}"})
+            row: dict[str, Any] = asdict(params) | {"error": f"{type(e).__name__}: {e}"}
+            if "field_bits" not in row:
+                with contextlib.suppress(Exception):
+                    row["field_bits"] = FieldSpec(p=params.p, r=params.r, f=params.f).field_bits
+            rows.append(row)
     return rows

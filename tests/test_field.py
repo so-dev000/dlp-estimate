@@ -232,3 +232,15 @@ def test_dlp_requires_exact_generator_order(
 def test_dlp_rejects_target_outside_generated_subgroup(order_two_instance: DLPInstance) -> None:
     with pytest.raises(ValueError, match="h must belong to the subgroup"):
         replace(order_two_instance, h=(2,))  # 2 は {1, 4} に属さない。
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        (FieldSpec(p=2, r=8, f=(1, 1, 1, 0, 0, 0, 0, 1, 1)), 8),
+        (FieldSpec(p=251, r=1, f=(0, 1)), 8),
+        (FieldSpec(p=5, r=1, f=(0, 1)), 3),
+    ],
+)
+def test_field_bits_is_ceil_log2_order(spec: FieldSpec, expected: int) -> None:
+    assert spec.field_bits == expected

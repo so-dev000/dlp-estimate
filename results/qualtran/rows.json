@@ -34,6 +34,7 @@
       1,
       1
     ],
+    "field_bits": 8,
     "exponent_bits": 16,
     "logical_qubits": 48,
     "t": 28,
@@ -47,7 +48,7 @@
     "measurement": 240,
     "physical_qubits": 159564,
     "n_cycles": 1245942,
-    "duration_hr": 3.46095e-06,
+    "duration_hr": 0.000346095,
     "failure_prob": 0.00010717747665023371,
     "code_distance": 25
   },
@@ -77,6 +78,7 @@
       2,
       2
     ],
+    "field_bits": 8,
     "exponent_bits": 16,
     "logical_qubits": 73,
     "t": 28,
@@ -90,7 +92,7 @@
     "measurement": 50688,
     "physical_qubits": 228314,
     "n_cycles": 26387742,
-    "duration_hr": 7.329928333333333e-05,
+    "duration_hr": 0.0073299283333333335,
     "failure_prob": 0.002284420534156331,
     "code_distance": 25
   },
@@ -108,6 +110,7 @@
     "h": [
       29
     ],
+    "field_bits": 8,
     "exponent_bits": 16,
     "logical_qubits": 83,
     "t": 28,
@@ -121,7 +124,7 @@
     "measurement": 43248,
     "physical_qubits": 254564,
     "n_cycles": 22535123,
-    "duration_hr": 6.25975638888889e-05,
+    "duration_hr": 0.006259756388888889,
     "failure_prob": 0.00195562676277581,
     "code_distance": 25
   },
@@ -172,6 +175,7 @@
       1,
       1
     ],
+    "field_bits": 12,
     "exponent_bits": 24,
     "logical_qubits": 72,
     "t": 44,
@@ -185,7 +189,7 @@
     "measurement": 552,
     "physical_qubits": 224564,
     "n_cycles": 3928725,
-    "duration_hr": 1.0913125e-05,
+    "duration_hr": 0.0010913125,
     "failure_prob": 0.0003399968379600015,
     "code_distance": 25
   },
@@ -215,6 +219,7 @@
       2,
       3
     ],
+    "field_bits": 12,
     "exponent_bits": 24,
     "logical_qubits": 106,
     "t": 44,
@@ -228,7 +233,7 @@
     "measurement": 188538,
     "physical_qubits": 317064,
     "n_cycles": 97363896,
-    "duration_hr": 0.0002704552666666667,
+    "duration_hr": 0.027045526666666667,
     "failure_prob": 0.008498045401075727,
     "code_distance": 25
   }

@@ -11,7 +11,7 @@ COLUMNS = list(EvalRow.__annotations__)
 
 PHYSICAL_CONFIG = QualtranPhysicalConfig(
     physical_error_rate=1e-3,
-    cycle_time_us=0.01,
+    cycle_time_us=1.0,
     data_d=25,
     data_block="fast",
     distillation_d_x=21,
