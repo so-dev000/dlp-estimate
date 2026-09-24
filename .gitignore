@@ -1,7 +1,8 @@
 folder_structure.md
 
-# results
-results/
+# results (qualtranのみ管理)
+results/*
+!results/qualtran/
 
 # uv virtual environment
 .venv/
