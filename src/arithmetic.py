@@ -3,8 +3,9 @@ from functools import cached_property
 import attrs
 import numpy as np
 from qualtran import QGF, Bloq, BloqBuilder, QBit, QUInt, Register, Signature, SoquetT
-from qualtran.bloqs.basic_gates import CSwap
+from qualtran.bloqs.basic_gates import CNOT, CSwap, TwoBitSwap
 from qualtran.bloqs.gf_arithmetic import GF2MulK
+from qualtran.bloqs.gf_arithmetic.gf2_multiplication import SynthesizeLRCircuit
 from qualtran.bloqs.mod_arithmetic import CtrlScaleModAdd
 from qualtran.simulation.classical_sim import ClassicalValT
 
@@ -74,7 +75,7 @@ class ControlledLinearMapAdd(Bloq):
 
         return {"ctrl": ctrl, "x": x, "y": y}
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
         r, p = self.spec.r, self.spec.p
         ctrl = int(vals["ctrl"])
 
@@ -195,7 +196,7 @@ class ControlledConstMul(Bloq):
 
         return {"ctrl": ctrl, "x": x}
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
         r, p = self.spec.r, self.spec.p
         ctrl = int(vals["ctrl"])
 
@@ -220,11 +221,42 @@ class ControlledConstMul(Bloq):
             "x": np.array(coefficients, dtype=object),
         }
 
-    def adjoint(self) -> ControlledConstMul:
+    def adjoint(self):
         return ControlledConstMul(
             spec=self.spec,
             c=self.field.inv(self.c),
         )
+
+
+class _GF2MulKWithExplicitSwaps(GF2MulK):
+    """Qualtran 0.7.0 で制御 OFF 時にも残る暗黙の置換を、明示的な SWAP に置き換える。
+    元のGF2MulKへ戻すとctrl=0でも値が変わる
+    Issue作成済み
+    """
+
+    def build_composite_bloq(self, bb: BloqBuilder, g: SoquetT) -> dict[str, SoquetT]:
+        bits = bb.split(g)[::-1]
+        lower, upper, permutation = SynthesizeLRCircuit(self.reduction_matrix_q).lup
+        n = len(bits)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if upper[i, j]:
+                    bits[j], bits[i] = bb.add_t(CNOT(), ctrl=bits[j], target=bits[i])
+        for i in reversed(range(n)):
+            for j in reversed(range(i)):
+                if lower[i, j]:
+                    bits[j], bits[i] = bb.add_t(CNOT(), ctrl=bits[j], target=bits[i])
+        columns = list(range(n))
+        for i in range(n):
+            for j in range(i + 1, n):
+                if permutation[i, columns[j]]:
+                    bits[i], bits[j] = bb.add_t(TwoBitSwap(), x=bits[i], y=bits[j])  # 明示的にSWAP
+                    columns[i], columns[j] = columns[j], columns[i]
+        return {"g": bb.join(bits[::-1], dtype=self.dtype)}
+
+    def build_call_graph(self, ssa):
+        # SWAP のコストも計上する。
+        return self.decompose_bloq().build_call_graph(ssa)
 
 
 @attrs.frozen(kw_only=True)
@@ -267,7 +299,7 @@ class ControlledGF2ConstMul(Bloq):
         constant = self.field.to_galois(self.c)
         polynomial = type(constant).irreducible_poly
         qgf = QGF(2, self.spec.r, polynomial)
-        multiplication = GF2MulK(dtype=qgf, const=int(constant)).controlled()
+        multiplication = _GF2MulKWithExplicitSwaps(dtype=qgf, const=int(constant)).controlled()
 
         assert isinstance(x, np.ndarray)
 
@@ -280,7 +312,7 @@ class ControlledGF2ConstMul(Bloq):
         x = np.array([bb.join([bit], dtype=QUInt(1)) for bit in bits], dtype=object)
         return {"ctrl": ctrl, "x": x}
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
         r, p = self.spec.r, self.spec.p
         ctrl = int(vals["ctrl"])
 
@@ -304,7 +336,7 @@ class ControlledGF2ConstMul(Bloq):
             "x": np.array(coefficients, dtype=object),
         }
 
-    def adjoint(self) -> ControlledGF2ConstMul:
+    def adjoint(self):
         return ControlledGF2ConstMul(
             spec=self.spec,
             c=self.field.inv(self.c),

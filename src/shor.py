@@ -114,7 +114,7 @@ class FieldExponentiation(Bloq):
             "x": x,
         }
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
         r, p = self.spec.r, self.spec.p
         exponent = int(vals["exponent"])
 
@@ -258,7 +258,7 @@ class DLPOracle(Bloq):
 
         return {"a": a, "b": b, "y": y}
 
-    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
+    def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:  # ty: ignore
         m = self.exponent_bits
         r, n = self.instance.spec.r, self.instance.spec.coefficient_bits
         a = int(vals["a"])

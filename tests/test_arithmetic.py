@@ -121,11 +121,15 @@ def test_decomposition_preserves_field_constant_and_inverse(gf2_spec: FieldSpec)
         assert tuple(int(a) for a in reversed(poly.coeffs)) == spec.f
         assert multiplication.const == sum(a << j for j, a in enumerate(constant))
 
-        # 標準Bloqの古典作用を使い、ラッパーのビット順と接続を検証する。
         assert_consistent_classical_action(bloq, ctrl=[0, 1], x=elements)
-        inverse = bloq.adjoint().decompose_bloq()
+        # 暗黙の置換を検出するため末端まで分解する。
+        fully_decomposed = decomposition.flatten()
+        inverse = bloq.adjoint().decompose_bloq().flatten()
         for ctrl, element in product((0, 1), elements):
-            ctrl_out, x_out = decomposition.call_classically(ctrl=ctrl, x=np.array(element))
+            ctrl_out, x_out = fully_decomposed.call_classically(ctrl=ctrl, x=np.array(element))
+            expected = field.mul(constant, element) if ctrl else element
+            assert ctrl_out == ctrl
+            assert _as_tuple(x_out) == expected
             ctrl_back, x_back = inverse.call_classically(ctrl=ctrl_out, x=x_out)
             assert ctrl_back == ctrl
             assert _as_tuple(x_back) == element
@@ -133,7 +137,7 @@ def test_decomposition_preserves_field_constant_and_inverse(gf2_spec: FieldSpec)
 
 def test_gf4_multiply_by_x_matches_hand_calculation() -> None:
     bloq = ControlledGF2ConstMul(spec=FieldSpec(p=2, r=2, f=(1, 1, 1)), c=(0, 1))
-    decomposition = bloq.decompose_bloq()
+    decomposition = bloq.decompose_bloq().flatten()
 
     for ctrl, a, b in product((0, 1), repeat=3):
         ctrl_out, x_out = decomposition.call_classically(ctrl=ctrl, x=np.array([a, b]))
@@ -141,7 +145,17 @@ def test_gf4_multiply_by_x_matches_hand_calculation() -> None:
         assert _as_tuple(x_out) == ((b, a ^ b) if ctrl else (a, b))
 
 
-def test_resources_match_standard_controlled_multiplication(gf2_spec: FieldSpec) -> None:
+def test_gf4_controlled_decomposition_preserves_full_unitary() -> None:
+    bloq = ControlledGF2ConstMul(spec=FieldSpec(p=2, r=2, f=(1, 1, 1)), c=(0, 1))
+    expected = np.zeros((8, 8), dtype=complex)
+    for ctrl, a, b in product((0, 1), repeat=3):
+        out_a, out_b = (b, a ^ b) if ctrl else (a, b)
+        expected[4 * ctrl + 2 * out_a + out_b, 4 * ctrl + 2 * a + b] = 1
+    actual = bloq.decompose_bloq().flatten().tensor_contract()
+    np.testing.assert_allclose(actual, expected, atol=1e-12)
+
+
+def test_resources_match_controlled_multiplication_with_explicit_swaps(gf2_spec: FieldSpec) -> None:
     spec = gf2_spec
     bloq = ControlledGF2ConstMul(spec=spec, c=(0, 1) + (0,) * (spec.r - 2))
     standard = next(
@@ -152,6 +166,13 @@ def test_resources_match_standard_controlled_multiplication(gf2_spec: FieldSpec)
 
     assert get_cost_value(bloq, QECGatesCost()) == get_cost_value(standard, QECGatesCost())
     assert get_cost_value(bloq, QubitCount()) == get_cost_value(standard, QubitCount())
+
+
+def test_gf4_resources_include_controlled_permutation() -> None:
+    bloq = ControlledGF2ConstMul(spec=FieldSpec(p=2, r=2, f=(1, 1, 1)), c=(0, 1))
+    costs = get_cost_value(bloq, QECGatesCost(legacy_shims=False))
+    assert costs.toffoli == 1
+    assert costs.cswap == 1
 
 
 @pytest.mark.parametrize(
