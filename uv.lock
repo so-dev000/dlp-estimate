@@ -700,7 +700,6 @@ name = "dlp-estimate"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "galois" },
     { name = "graphviz" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -725,7 +724,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "galois", specifier = "==0.4.11" },
     { name = "graphviz", specifier = "==0.20.3" },
     { name = "matplotlib", specifier = "==3.11.1" },
     { name = "numpy", specifier = "==2.5.2" },
