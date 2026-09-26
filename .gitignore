@@ -1,9 +1,8 @@
 # project docs
 docs/
 
-# results (qualtranのみ管理)
+# results
 results/*
-!results/qualtran/
 
 # uv virtual environment
 .venv/
