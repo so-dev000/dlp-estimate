@@ -1,5 +1,5 @@
-folder_structure.md
-todo.md
+# project docs
+docs/
 
 # results (qualtranのみ管理)
 results/*
@@ -42,6 +42,7 @@ htmlcov/
 
 .DS_Store
 
+# temp / backup files
 *.tmp
 *.temp
 *.log
@@ -49,13 +50,13 @@ htmlcov/
 *.swp
 *.swo
 
+# LaTeX artifacts
 *.aux
 *.bbl
 *.bcf
 *.blg
 *.fdb_latexmk
 *.fls
-*.log
 *.out
 *.run.xml
 *.synctex.gz
@@ -65,6 +66,7 @@ htmlcov/
 .env.*
 !.env.example
 
-# classical solvers (local only)
+# classical solvers
 src/_classical/
-tests/_classical/
+# tests
+tests/
