@@ -29,6 +29,12 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["src", "src.*"]
 
+[tool.setuptools.package-data]
+"src.literature_data" = [
+    "*.json",
+    "*.md",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py314"
