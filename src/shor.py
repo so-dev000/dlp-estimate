@@ -26,8 +26,8 @@ class ShorDLP(Bloq):
 
     @property
     def exponent_bits(self) -> int:
-        """2つの指数レジスタに共通のビット幅。2**m > q を満たす最小値。"""
-        return self.instance.q.bit_length()
+        """2つの指数レジスタに共通のビット幅。Mosca構成 n = ceil(log2(2q))+1"""
+        return (2 * self.instance.q - 1).bit_length() + 1
 
     @property
     def signature(self) -> Signature:

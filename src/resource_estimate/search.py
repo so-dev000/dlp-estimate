@@ -39,7 +39,7 @@ class EvalRow(TypedDict):
     label: str
     field_bits: int  # ceil(log2(p^r))
     # Shor configuration
-    exponent_bits: int  # 2つの指数レジスタ共通幅 Q=2**m > q の最小値
+    exponent_bits: int  # 2つの指数レジスタ共通幅 Mosca構成 n=ceil(log2(2q))+1
     # Physical-model inputs
     logical_qubits: int  # n_algo_qubits ancillaを含む最大同時使用数
     n_t_states: int  # T demang (native + 回転合成)
@@ -69,7 +69,7 @@ class EvalRow(TypedDict):
     implementation_error: float  # eps_syn + factory_error + data_error (単発の実装誤差)
     # Algorithm success: p_alg (理想下限) と p_run (実装誤差込み下限)。
     # R は p_run と最終目標 delta_final から一本化して決める。
-    single_run_success: float  # 16/pi^4 * phi(q)/q (因数分解不明時はさらに保守的な下限)
+    single_run_success: float  # (8/pi^2)^2 * phi(q)/q (Mosca bound; 素数では (q-1)/q)
     combined_single_run_success: float  # max(0, p_alg - eps_impl) [1-shot 下限 p_run]
     repetitions: int  # (1-p_run)^R <= delta_final の最小R
     total_failure_prob: float  # (1-p_run)^R [R 回全体の上限]

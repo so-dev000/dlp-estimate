@@ -9,8 +9,12 @@ from ..validation import validate_probability
 def single_run_success_lower_bound(
     q_factors: Factorization,
 ) -> float:
-    """Shor-DLP の1-run 成功確率下限"""
-    return (16.0 / math.pi**4) * math.prod(1.0 - 1.0 / p for p, _ in q_factors)
+    """
+    Shor-DLP の1-run 成功確率下限 (Mosca bound)
+    Mosca, PhD thesis (1999), Corollary 19, p.58:
+    回路は Mosca の構成 (n = ceil(log2(2q))+1) を前提とする
+    """
+    return (64.0 / math.pi**4) * math.prod(1.0 - 1.0 / p for p, _ in q_factors)
 
 
 def run_success_lower_bound(
