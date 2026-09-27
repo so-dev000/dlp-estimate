@@ -1,5 +1,3 @@
-"""成功確率下限と繰り返し回数の評価。"""
-
 import math
 
 from ..field import Factorization
