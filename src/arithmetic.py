@@ -23,7 +23,6 @@ class ControlledLinearMapAdd(Bloq):
     matrix: FieldMatrix
 
     def __attrs_post_init__(self) -> None:
-        _ = self.field
         r, p = self.spec.r, self.spec.p
         if p == 2:
             raise ValueError("GF(2) is not supported in this class")
@@ -115,7 +114,7 @@ class ControlledConstMul(Bloq):
     def __attrs_post_init__(self) -> None:
         if self.spec.p == 2:
             raise ValueError("GF(2) is not supported in this class")
-        if self.field.to_galois(self.c) == 0:
+        if self.field.is_zero(self.c):
             raise ValueError("c must be nonzero")
 
     @cached_property
@@ -230,9 +229,7 @@ class ControlledConstMul(Bloq):
 
 @cache
 def _qgf_for_spec(spec: FieldSpec) -> QGF:
-    field = shared_field(spec)
-    polynomial = type(field.to_galois(field.one)).irreducible_poly
-    return QGF(2, spec.r, polynomial)
+    return QGF(2, spec.r, tuple(i for i, coeff in enumerate(spec.f) if coeff))
 
 
 class _GF2MulKWithExplicitSwaps(GF2MulK):
@@ -304,7 +301,7 @@ class ControlledGF2ConstMul(Bloq):
     def __attrs_post_init__(self) -> None:
         if self.spec.p != 2:
             raise ValueError("GF(2) is required in this class")
-        if self.field.to_galois(self.c) == 0:
+        if self.field.is_zero(self.c):
             raise ValueError("c must be nonzero")
 
     @cached_property
@@ -327,9 +324,9 @@ class ControlledGF2ConstMul(Bloq):
         if self.c == self.field.one:
             return {"ctrl": ctrl, "x": x}
 
-        constant = self.field.to_galois(self.c)
+        constant = sum(bit << i for i, bit in enumerate(self.c))
         qgf = _qgf_for_spec(self.spec)
-        multiplication = _GF2MulKWithExplicitSwaps(dtype=qgf, const=int(constant)).controlled()
+        multiplication = _GF2MulKWithExplicitSwaps(dtype=qgf, const=constant).controlled()
 
         assert isinstance(x, np.ndarray)
 

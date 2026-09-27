@@ -1,8 +1,16 @@
 from dataclasses import dataclass
-from functools import cache
+from functools import cache, lru_cache
 
-import galois
-from sympy import factorint, isprime
+from sympy import isprime
+from sympy.polys.domains import ZZ
+from sympy.polys.galoistools import (
+    gf_gcdex,
+    gf_irreducible_p,
+    gf_mul,
+    gf_pow_mod,
+    gf_rem,
+    gf_strip,
+)
 
 type FieldElement = tuple[int, ...]  # (a_0, a_1, ..., a_{r-1})
 type PolynomialCoefficients = tuple[int, ...]  # (c_0, c_1, ..., c_r)
@@ -13,7 +21,7 @@ type Factorization = tuple[tuple[int, int], ...]  # (prime, exponent)
 
 @dataclass(frozen=True, kw_only=True)
 class FieldSpec:
-    """GF(p^r)の仕様。素数性・既約性の検証は体の構築時に行う。"""
+    """GF(p^r)の仕様。素数性・既約性はFiniteField.validate()で別途検証する。"""
 
     p: int
     r: int
@@ -49,18 +57,6 @@ class FieldSpec:
         return (self.order - 1).bit_length()
 
 
-def _galois_field(spec: FieldSpec) -> type[galois.FieldArray]:
-    """pの素数性を検証し、既約性の検証をgaloisに任せて体を構築する。"""
-    if not isprime(spec.p):
-        raise ValueError(f"p must be prime, got {spec.p}")
-    prime_field = galois.GF(spec.p, 1, compile="python-calculate")
-    if spec.r == 1:
-        return prime_field
-
-    poly = galois.Poly(spec.f, field=prime_field, order="asc")
-    return galois.GF(spec.p, spec.r, irreducible_poly=poly, compile="python-calculate")
-
-
 def format_polynomial(coeffs: PolynomialCoefficients) -> str:
     """低次数順の係数tupleを多項式文字列表現にする。例: (2, 0, 1) -> "2 + X^2"。"""
     terms = []
@@ -84,12 +80,31 @@ def _validate_element(a: FieldElement, spec: FieldSpec) -> None:
 
 
 class FiniteField:
-    """要素を長さr、係数が[0, p)の低次数順tupleで扱う有限体。"""
+    """検証済みのp/fを用い、原始元探索なしで剰余演算する有限体。"""
 
     def __init__(self, spec: FieldSpec) -> None:
-        """pの素数性とfの既約性を検証して体を構築する。"""
+        """軽量に構築する。体の検証は推定入口で明示的に行う。"""
         self.spec = spec
-        self._galois_field = _galois_field(spec)
+        self._modulus = list(reversed(spec.f))
+
+    def validate(self) -> None:
+        """pの素数性とfの既約性を必要時に明示的に検証する。"""
+        if not isprime(self.spec.p):
+            raise ValueError(f"p must be prime, got {self.spec.p}")
+        if not gf_irreducible_p(self._modulus, self.spec.p, ZZ):
+            raise ValueError("f must be irreducible")
+
+    def _poly(self, a: FieldElement) -> list[int]:
+        """public演算で検証済みの要素をSymPy形式へ変換する。"""
+        return gf_strip(list(reversed(a)))
+
+    def _from_poly(self, a: list[int]) -> FieldElement:
+        return tuple(reversed(a)) + (0,) * (self.spec.r - len(a))
+
+    def is_zero(self, a: FieldElement) -> bool:
+        """体の構築を伴わず、係数の形と零かどうかを確認する。"""
+        _validate_element(a, self.spec)
+        return not any(a)
 
     @property
     def zero(self) -> FieldElement:
@@ -101,53 +116,69 @@ class FiniteField:
         """乗法単位元を返す。"""
         return (1,) + (0,) * (self.spec.r - 1)  # (1, 0, ..., 0) : 1 + 0*X + ... + 0*X^(r-1) = 1
 
-    def to_galois(self, a: FieldElement) -> galois.FieldArray:
-        """低次数順の係数tupleを、この体のgaloisスカラーへ変換する。"""
-        _validate_element(a, self.spec)
-        return self._galois_field.Vector(list(reversed(a)))
-
-    def from_galois(self, x: galois.FieldArray) -> FieldElement:
-        """この体のgaloisスカラーを低次数順の係数tupleへ変換する。"""
-        if not isinstance(x, self._galois_field) or x.ndim != 0:
-            raise ValueError("x must be a galois scalar belonging to this field")
-        return tuple(int(c) for c in reversed(x.vector()))
-
     def add(self, a: FieldElement, b: FieldElement) -> FieldElement:
         """和 a + b を返す。"""
-        return self.from_galois(self.to_galois(a) + self.to_galois(b))
+        _validate_element(a, self.spec)
+        _validate_element(b, self.spec)
+        return tuple((x + y) % self.spec.p for x, y in zip(a, b, strict=True))
 
     def sub(self, a: FieldElement, b: FieldElement) -> FieldElement:
         """差 a - b を返す。"""
-        return self.from_galois(self.to_galois(a) - self.to_galois(b))
+        _validate_element(a, self.spec)
+        _validate_element(b, self.spec)
+        return tuple((x - y) % self.spec.p for x, y in zip(a, b, strict=True))
 
     def neg(self, a: FieldElement) -> FieldElement:
         """加法逆元 -a を返す。"""
-        return self.from_galois(-self.to_galois(a))
+        _validate_element(a, self.spec)
+        return tuple(-x % self.spec.p for x in a)
 
     def mul(self, a: FieldElement, b: FieldElement) -> FieldElement:
         """積 a * b を返す。"""
-        return self.from_galois(self.to_galois(a) * self.to_galois(b))
+        _validate_element(a, self.spec)
+        _validate_element(b, self.spec)
+        if self.spec.r == 1:
+            return (a[0] * b[0] % self.spec.p,)
+        product = gf_mul(self._poly(a), self._poly(b), self.spec.p, ZZ)
+        return self._from_poly(gf_rem(product, self._modulus, self.spec.p, ZZ))
 
+    @lru_cache(maxsize=4096)  # noqa: B019 - bounded; shared_field also retains these objects.
     def inv(self, a: FieldElement) -> FieldElement:
         """乗法逆元を返す。"""
-        return self.from_galois(self.to_galois(a) ** -1)
+        if self.is_zero(a):
+            raise ZeroDivisionError("zero has no multiplicative inverse")
+        if self.spec.r == 1:
+            return (pow(a[0], -1, self.spec.p),)
+        # 拡張Euclid法で求める。全群位数の計算や原始元は不要。
+        inverse, _, gcd = gf_gcdex(self._poly(a), self._modulus, self.spec.p, ZZ)
+        if gcd != [1]:
+            raise ZeroDivisionError("element has no multiplicative inverse modulo f")
+        return self._from_poly(inverse)
 
     def pow(self, a: FieldElement, exponent: int) -> FieldElement:
         """整数乗を返す。負の指数は非零要素に限り、0**0は1とする。"""
         if type(exponent) is not int:
             raise ValueError("exponent must be an integer")
-        value = self.to_galois(a)
-        return self.from_galois(value**exponent)
+        _validate_element(a, self.spec)
+        if exponent < 0:
+            a, exponent = self.inv(a), -exponent
+        if self.spec.r == 1:
+            return (pow(a[0], exponent, self.spec.p),)
+        return self._from_poly(gf_pow_mod(self._poly(a), exponent, self._modulus, self.spec.p, ZZ))
 
+    @lru_cache(maxsize=4096)  # noqa: B019 - bounded; shared_field also retains these objects.
     def const_mul_matrix(self, c: FieldElement) -> FieldMatrix:
         """GF(p)上の定数乗算行列を返す。第j列は c * X^j mod f の係数列。"""
-        value = self.to_galois(c)
+        _validate_element(c, self.spec)
         r = self.spec.r
-        columns = []
-        for j in range(r):
-            # 高次数順のVectorで、X^jに対応する位置だけ1にする。
-            basis = self._galois_field.Vector([0] * (r - j - 1) + [1] + [0] * j)
-            columns.append(self.from_galois(value * basis))
+        columns = [c]
+        # c*X^jからXを一つ掛けて次の列を得る。一般の乗算をr回繰り返さない。
+        for _ in range(1, r):
+            previous = columns[-1]
+            shifted = (0, *previous[:-1])
+            columns.append(
+                tuple((shifted[i] - previous[-1] * self.spec.f[i]) % self.spec.p for i in range(r))
+            )
         return tuple(tuple(column[i] for column in columns) for i in range(r))
 
 
@@ -166,70 +197,90 @@ def encode(element: FieldElement, spec: FieldSpec) -> Bits:
     return tuple((a >> shift) & 1 for a in element for shift in range(n - 1, -1, -1))
 
 
-def decode(bits: Bits, spec: FieldSpec) -> FieldElement:
-    """encodeされた符号を復元する。"""
-    n = spec.coefficient_bits
-    if not isinstance(bits, tuple) or len(bits) != spec.r * n:
-        raise ValueError(f"bits must be a tuple of length {spec.r * n}")
-    if any(type(bit) is not int or bit not in (0, 1) for bit in bits):
-        raise ValueError("bits must contain only the integers 0 and 1")
+def _validate_factorization(
+    q_factors: Factorization | None,
+    q: int,
+) -> None:
+    """q_factors が与えられた場合、q の完全素因数分解であることを確認する。"""
+    if q_factors is None:
+        return
 
-    coefficients = []
-    for start in range(0, len(bits), n):
-        value = 0
-        for bit in bits[start : start + n]:
-            value = (value << 1) | bit
-        if value >= spec.p:
-            raise ValueError(f"decoded coefficients must be less than {spec.p}")
-        coefficients.append(value)
-    return tuple(coefficients)
+    if not isinstance(q_factors, tuple) or not q_factors:
+        raise ValueError("q_factors must be a non-empty tuple or None")
 
+    product = 1
+    previous = 0
 
-# TODO: ボトルネックになるので将来的には入力を検証済みとして削除する
-def factorize(q: int) -> Factorization:
-    """q > 1 を素因数分解し、(prime, exponent)の昇順tupleで返す。"""
-    if type(q) is not int or q <= 1:
-        raise ValueError("q must be an integer > 1")
-    return tuple(sorted((int(prime), int(exponent)) for prime, exponent in factorint(q).items()))
+    for item in q_factors:
+        if not isinstance(item, tuple) or len(item) != 2:
+            raise ValueError("q_factors entries must be (prime, exponent) tuples")
+
+        prime, exponent = item
+
+        if type(prime) is not int or type(exponent) is not int:
+            raise ValueError("q_factors prime and exponent must be integers")
+        if exponent < 1:
+            raise ValueError("q_factors exponents must be positive")
+        if prime <= previous:
+            raise ValueError("q_factors primes must be ascending without duplicates")
+        if not isprime(prime):
+            raise ValueError(f"q_factors {prime} is not prime")
+
+        previous = prime
+        product *= prime**exponent
+
+    if product != q:
+        raise ValueError("q_factors must multiply to q")
 
 
 @dataclass(frozen=True, kw_only=True)
 class DLPInstance:
-    """g**d = hを解く入力。生成時に体・位数・部分群所属を検証する。"""
+    """
+    g**d = h を解くDLP入力。
+
+    q_factors が与えられている場合は q の完全因数分解として扱い、
+    g の位数が厳密に q であることを検証できる。
+
+    q_factors=None の場合は完全因数分解が未知であることを表し、
+    exact-order 検証を省略する。
+    """
 
     spec: FieldSpec
-    q: int  # gの位数
+    q: int
     g: FieldElement
     h: FieldElement
+    q_factors: Factorization | None = None
 
     def __post_init__(self) -> None:
-        """体・gの位数q・hの部分群所属を検証する。"""
+        """型・形・非零条件と、与えられた素因数分解を軽量に検証する。"""
         if type(self.q) is not int or self.q <= 1:
             raise ValueError("q must be an integer > 1")
 
+        _validate_factorization(self.q_factors, self.q)
+
+        _validate_element(self.g, self.spec)
+        _validate_element(self.h, self.spec)
+
+        if not any(self.g) or not any(self.h):
+            raise ValueError("g and h must be nonzero")
+
+    def validate(self) -> None:
+        """
+        gの位数・hの部分群所属を検証する。
+
+        q_factors が与えられている場合は exact order まで検証する。
+        q_factors=None の場合は q の内部因数分解を行わず、
+        exact-order 検証を省略する。
+        """
         field = shared_field(self.spec)
-        g = field.to_galois(self.g)
-        h = field.to_galois(self.h)
-        if g**self.q != 1:
+
+        if field.pow(self.g, self.q) != field.one:
             raise ValueError("q must be the order of g")
-        for prime, _ in factorize(self.q):
-            if g ** (self.q // prime) == 1:
-                raise ValueError("q must be the order of g")
-        if h**self.q != 1:
+
+        if self.q_factors is not None:
+            for prime, _ in self.q_factors:
+                if field.pow(self.g, self.q // prime) == field.one:
+                    raise ValueError("q must be the order of g")
+
+        if field.pow(self.h, self.q) != field.one:
             raise ValueError("h must belong to the subgroup generated by g")
-
-
-def embedding_degree(instance: DLPInstance) -> int:
-    """
-    p^k ≡ 1 (mod q) を満たす最小の正整数 k (i.e. pのmod qでの位数) を返す。
-    p^r = 1 (mod q) が成り立つことは DLPInstance の生成時に検証済みなので、
-    k は r の約数であることを利用する。
-    """
-    p, r, q = instance.spec.p, instance.spec.r, instance.q
-
-    degree = r
-    for prime in factorint(r):
-        prime = int(prime)
-        while degree % prime == 0 and pow(p, degree // prime, q) == 1:
-            degree //= prime
-    return degree
