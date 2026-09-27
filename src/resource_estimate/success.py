@@ -47,7 +47,7 @@ def repetitions_for_failure(
     return math.ceil(math.log(threshold) / math.log1p(-p))
 
 
-def total_failure_prob(p_run: float, repetitions: int) -> float:
+def total_failure_upper_bound(p_run: float, repetitions: int) -> float:
     """(1-p_run)**R"""
     p = validate_probability(p_run, "p_run", endpoints=True)
     if type(repetitions) is not int or repetitions < 0:

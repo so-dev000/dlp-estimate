@@ -21,21 +21,19 @@ from src.resource_estimate.search import EvalRow, sweep
 
 GENERATED_FILES = ("config.txt", "rows.json", "rows.csv", *GRAPH_FILES)
 
-# Beverland 流の等分 budget:
-# eps_impl = 1e-2 を synthesis / factory / data に等分する。
-IMPLEMENTATION_ERROR_BUDGET = 1e-2
+TOTAL_ERROR_BUDGET = 1 / 3
 
-SYNTHESIS_ERROR_BUDGET = IMPLEMENTATION_ERROR_BUDGET / 3
-FACTORY_ERROR_BUDGET = IMPLEMENTATION_ERROR_BUDGET / 3
-DATA_ERROR_BUDGET = IMPLEMENTATION_ERROR_BUDGET / 3
+SYNTHESIS_ERROR_BUDGET = TOTAL_ERROR_BUDGET / 3
+FACTORY_ERROR_BUDGET = TOTAL_ERROR_BUDGET / 3
+DATA_ERROR_BUDGET = TOTAL_ERROR_BUDGET / 3
 PHYSICAL_FAILURE_THRESHOLD = FACTORY_ERROR_BUDGET + DATA_ERROR_BUDGET
 
-FINAL_FAILURE_THRESHOLD = 1e-2
+FINAL_FAILURE_THRESHOLD = 1e-1
 
 PHYSICAL_CONFIG = QualtranPhysicalConfig(
-    physical_error_rate=1e-3,
-    cycle_time_us=1.0,
-    qec_scheme="gidney_fowler",
+    physical_error_rate=1e-4,
+    cycle_time_us=0.4,
+    qec_scheme="beverland",
     physical_failure_threshold=PHYSICAL_FAILURE_THRESHOLD,
     factory_error_budget=FACTORY_ERROR_BUDGET,
     data_error_budget=DATA_ERROR_BUDGET,
@@ -74,8 +72,8 @@ def _config_text(
         "model = BeverlandEtAlRotationCost",
         f"synthesis_error_budget = {synthesis_error_budget}",
         "",
-        "[implementation_error_budget]",
-        f"implementation_error_budget = {IMPLEMENTATION_ERROR_BUDGET}",
+        "[total_error_budget]",
+        f"total_error_budget = {TOTAL_ERROR_BUDGET}",
         f"synthesis_error_budget = {synthesis_error_budget}",
         f"factory_error_budget = {config.factory_error_budget}",
         f"data_error_budget = {config.data_error_budget}",

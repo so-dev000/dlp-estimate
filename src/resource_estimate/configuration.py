@@ -15,7 +15,6 @@ from .physical import (
     make_qec_scheme,
     to_algorithm_summary,
 )
-from .success import repetitions_for_failure, run_success_lower_bound
 
 SEARCH_DATA_DS = tuple(range(3, 62, 2))
 FIFTEEN_TO_ONE_DXS = tuple(range(9, 28, 2))
@@ -73,10 +72,6 @@ def search_physical_configuration(
     logical: LogicalResources,
     demand: MagicStateDemand,
     config: QualtranPhysicalConfig,
-    *,
-    p_alg: float,
-    synthesis_error_budget: float,
-    final_failure_threshold: float,
 ) -> tuple[PhysicalDistances, QualtranPhysicalResources]:
     best: tuple[PhysicalDistances, QualtranPhysicalResources] | None = None
     best_key: tuple[float, int, int, int, int, int, int] | None = None
@@ -100,18 +95,9 @@ def search_physical_configuration(
             and resources.data_error <= config.data_error_budget
         ):
             return
-        p_run = run_success_lower_bound(
-            p_alg,
-            synthesis_error_budget,
-            resources.factory_error,
-            resources.data_error,
-        )
-        if p_run <= 0:
-            return
-        reps = repetitions_for_failure(p_run, final_failure_threshold)
-        total_qubit_hours = resources.physical_qubits * resources.duration_hr * reps
+        one_shot_qubit_hours = resources.physical_qubits * resources.duration_hr
         key = (
-            total_qubit_hours,
+            one_shot_qubit_hours,
             resources.physical_qubits,
             resources.n_cycles,
             SWEPT_DATA_BLOCKS.index(distances.data_block),

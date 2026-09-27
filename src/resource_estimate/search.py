@@ -17,7 +17,7 @@ from .success import (
     repetitions_for_failure,
     run_success_lower_bound,
     single_run_success_lower_bound,
-    total_failure_prob,
+    total_failure_upper_bound,
 )
 
 
@@ -116,9 +116,6 @@ def eval_point(
             logical,
             demand,
             physical_config,
-            p_alg=p_alg,
-            synthesis_error_budget=synthesis_error_budget,
-            final_failure_threshold=final_failure_threshold,
         )
     except Exception as e:
         return EvalRow(base | {"error": f"{type(e).__name__}: {e}"})
@@ -149,24 +146,33 @@ def eval_point(
         "factory_error": physical.factory_error,
         "data_error": physical.data_error,
     }
-    # union-bound 的な加法予算での 1-shot 下限 p_run と、最終目標からの R (一本化)。
     p_run = run_success_lower_bound(
         p_alg,
         synthesis_error_budget,
         physical.factory_error,
         physical.data_error,
     )
-    repetitions = repetitions_for_failure(p_run, final_failure_threshold)
+    implementation_error = synthesis_error_budget + physical.factory_error + physical.data_error
+    try:
+        repetitions = repetitions_for_failure(p_run, final_failure_threshold)
+    except Exception as e:
+        return EvalRow(
+            base
+            | physical_row
+            | {
+                "implementation_error": implementation_error,
+                "combined_single_run_success": p_run,
+                "error": f"{type(e).__name__}: {e}",
+            }
+        )
     return EvalRow(
         base
         | physical_row
         | {
-            "implementation_error": (
-                synthesis_error_budget + physical.factory_error + physical.data_error
-            ),
+            "implementation_error": implementation_error,
             "combined_single_run_success": p_run,
             "repetitions": repetitions,
-            "total_failure_prob": total_failure_prob(p_run, repetitions),
+            "total_failure_prob": total_failure_upper_bound(p_run, repetitions),
             # 逐次R回実行の総費用。qubitsはR倍しない。
             "duration_hr_total": physical.duration_hr * repetitions,
             "n_cycles_total": physical.n_cycles * repetitions,
