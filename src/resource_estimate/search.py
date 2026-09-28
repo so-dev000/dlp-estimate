@@ -42,8 +42,10 @@ class EvalRow(TypedDict):
     exponent_bits: int  # 2つの指数レジスタ共通幅 Mosca構成 n=ceil(log2(2q))+1
     # Physical-model inputs
     logical_qubits: int  # n_algo_qubits ancillaを含む最大同時使用数
-    n_t_states: int  # T demang (native + 回転合成)
-    n_ccz_states: int  # CCZ demand (toffoli + cswap + and_bloq)
+    n_t_states: int  # factoryに渡すT需要 (fifteen_to_oneではCCZ畳み込み後)
+    n_ccz_states: int  # factoryに渡すCCZ需要 (fifteen_to_oneでは0)
+    n_t_states_pre_fold: int  # CCZ→T畳み込み前の素のT需要 (native + 回転合成)
+    n_ccz_states_pre_fold: int  # CCZ→T畳み込み前の素のCCZ需要 (toffoli + cswap + and_bloq)
     # Per-point choices
     data_block: str  # 探索で選ばれた data_block
     code_distance: int  # 探索で選ばれた data_d
@@ -109,6 +111,8 @@ def eval_point(
         "logical_qubits": logical.logical_qubits,
         "n_t_states": n_t,
         "n_ccz_states": n_ccz,
+        "n_t_states_pre_fold": demand.n_t_states,
+        "n_ccz_states_pre_fold": demand.n_ccz_states,
         "single_run_success": p_alg,
     }
     try:
@@ -116,6 +120,9 @@ def eval_point(
             logical,
             demand,
             physical_config,
+            p_alg=p_alg,
+            synthesis_error_budget=synthesis_error_budget,
+            final_failure_threshold=final_failure_threshold,
         )
     except Exception as e:
         return EvalRow(base | {"error": f"{type(e).__name__}: {e}"})

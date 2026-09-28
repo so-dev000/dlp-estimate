@@ -1,11 +1,23 @@
 import attrs
 import numpy as np
-from qualtran import Bloq, BloqBuilder, QBit, QUInt, Register, Side, Signature, SoquetT
-from qualtran.bloqs.basic_gates import Hadamard
+from qualtran import Bloq, BloqBuilder, QUInt, Register, Side, Signature, SoquetT
+from qualtran.bloqs.basic_gates import Hadamard, XGate
 from qualtran.bloqs.qft import QFTTextBook
 
-from .field import DLPInstance
+from .field import Bits, DLPInstance, encode, shared_field
 from .oracle import DLPOracle
+
+
+def _x_encoded_bits(bb: BloqBuilder, w: np.ndarray, encoded: Bits, bitsize: int) -> np.ndarray:
+    """係数レジスタ列wのうち、encodedが1のビット位置にXを適用する。"""
+    for position, bit in enumerate(encoded):
+        if not bit:
+            continue
+        j, k = divmod(position, bitsize)
+        bits = bb.split(w[j])
+        bits[k] = bb.add(XGate(), q=bits[k])
+        w[j] = bb.join(bits, dtype=QUInt(bitsize))
+    return w
 
 
 @attrs.frozen(kw_only=True)
@@ -13,11 +25,11 @@ class ShorDLP(Bloq):
     """
     Nielsen-Chuang5.4.2節のShor-DLP実装
 
-    |a=0>|b=0>|y=0>
+    |a=0>|b=0>|y=1>
           -> H^{⊗m}をa, bに適用
-          -> (1/2^m) Σ_{a,b} |a>|b>|y=0>
+          -> (1/2^m) Σ_{a,b} |a>|b>|y=1>
           -> DLPOracleを適用
-          -> (1/2^m) Σ_{a,b} |a>|b>|y=encode(h^a g^b)>
+          -> (1/2^m) Σ_{a,b} |a>|b>|y=h^a g^b>
           -> QFT^{-1}をa, bに適用
           -> |a>|b>|y>
     """
@@ -38,7 +50,7 @@ class ShorDLP(Bloq):
             [
                 Register("a", QUInt(m), side=Side.RIGHT),
                 Register("b", QUInt(m), side=Side.RIGHT),
-                Register("y", QBit(), (r * n,), Side.RIGHT),
+                Register("y", QUInt(n), shape=(r,), side=Side.RIGHT),
             ]
         )
 
@@ -47,15 +59,18 @@ class ShorDLP(Bloq):
         n = self.instance.spec.coefficient_bits
         r = self.instance.spec.r
 
-        # 初期状態 |0>|0>|0>
+        # 初期状態 |0>|0>|1>
         a = bb.allocate(dtype=QUInt(m))
         b = bb.allocate(dtype=QUInt(m))
         y = np.array(
-            [bb.allocate(dtype=QBit()) for _ in range(r * n)],
+            [bb.allocate(dtype=QUInt(n)) for _ in range(r)],
             dtype=object,
         )
+        y = _x_encoded_bits(
+            bb, y, encode(shared_field(self.instance.spec).one, self.instance.spec), n
+        )
 
-        # 一様重ね合わせ |0>|0>|0> -> (1/2^m) Σ_{a,b} |a>|b>|0>
+        # 一様重ね合わせ |0>|0>|1> -> (1/2^m) Σ_{a,b} |a>|b>|1>
         a_bits = bb.split(a)
         b_bits = bb.split(b)
         for i in range(m):
@@ -64,7 +79,7 @@ class ShorDLP(Bloq):
         a = bb.join(a_bits, dtype=QUInt(m))
         b = bb.join(b_bits, dtype=QUInt(m))
 
-        # DLPOracleを適用 |a>|b>|y=0> -> |a>|b>|encode(h^a g^b)>
+        # DLPOracleを適用 |a>|b>|y=1> -> |a>|b>|h^a g^b>
         a, b, y = bb.add_t(DLPOracle(instance=self.instance, exponent_bits=m), a=a, b=b, y=y)
 
         # 逆QFTを適用

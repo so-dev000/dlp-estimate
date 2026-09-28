@@ -6,6 +6,7 @@ from qualtran.surface_code import LogicalErrorModel
 
 from .logical import LogicalResources, MagicStateDemand
 from .physical import (
+    DataBlockName,
     FactoryName,
     PhysicalDistances,
     QualtranPhysicalConfig,
@@ -15,17 +16,23 @@ from .physical import (
     make_qec_scheme,
     to_algorithm_summary,
 )
+from .success import repetitions_for_failure, run_success_lower_bound
 
-SEARCH_DATA_DS = tuple(range(3, 62, 2))
-FIFTEEN_TO_ONE_DXS = tuple(range(9, 28, 2))
-FIFTEEN_TO_ONE_DZS = tuple(range(7, 24, 2))
-FIFTEEN_TO_ONE_DMS = tuple(range(5, 18, 2))
-CCZ2T_L1_DS = tuple(range(11, 24, 2))
-CCZ2T_L2_DS = tuple(range(23, 40, 2))
-SWEPT_DATA_BLOCKS = ("compact", "intermediate", "fast")
+SEARCH_DATA_DS = tuple(range(3, 32, 2))
+FIFTEEN_TO_ONE_DXS = tuple(range(3, 34, 2))
+FIFTEEN_TO_ONE_DZS = tuple(range(3, 28, 2))
+FIFTEEN_TO_ONE_DMS = tuple(range(3, 22, 2))
+CCZ2T_L1_DS = tuple(range(5, 28, 2))
+CCZ2T_L2_DS = tuple(range(11, 48, 2))
+SWEPT_DATA_BLOCKS: tuple[DataBlockName, ...] = ("compact", "intermediate", "fast")
+
+FactoryDists = tuple[int, ...]
+CandidateKey = tuple[int, ...]
+
+_DATA_BLOCK_ORDER = {name: i for i, name in enumerate(SWEPT_DATA_BLOCKS)}
 
 
-def _distance_kwargs(factory: FactoryName, dists: tuple[int, ...]) -> dict[str, int]:
+def _distance_kwargs(factory: FactoryName, dists: FactoryDists) -> dict[str, int]:
     if factory == "ccz2t":
         l1_d, l2_d = dists
         return {"ccz2t_l1_d": l1_d, "ccz2t_l2_d": l2_d}
@@ -33,24 +40,23 @@ def _distance_kwargs(factory: FactoryName, dists: tuple[int, ...]) -> dict[str, 
     return {"fifteen_to_one_dx": d_x, "fifteen_to_one_dz": d_z, "fifteen_to_one_dm": d_m}
 
 
-def _iter_distance_candidates(factory: FactoryName) -> Iterator[tuple[int, ...]]:
+def _iter_factory_distances(factory: FactoryName) -> Iterator[FactoryDists]:
     if factory == "ccz2t":
         for l1_d in CCZ2T_L1_DS:
             for l2_d in CCZ2T_L2_DS:
                 yield (l1_d, l2_d)
-    else:
-        for d_x in FIFTEEN_TO_ONE_DXS:
-            for d_z in FIFTEEN_TO_ONE_DZS:
-                for d_m in FIFTEEN_TO_ONE_DMS:
-                    if d_x <= 3 * d_m:
-                        yield (d_x, d_z, d_m)
+        return
+    for d_x in FIFTEEN_TO_ONE_DXS:
+        for d_z in FIFTEEN_TO_ONE_DZS:
+            for d_m in FIFTEEN_TO_ONE_DMS:
+                if d_x <= 3 * d_m:
+                    yield (d_x, d_z, d_m)
 
 
 def _factory_error_exceeds_budget(
     factory: FactoryName,
-    dists: tuple[int, ...],
-    gates_n_t: int,
-    gates_n_ccz: int,
+    dists: FactoryDists,
+    gates: GateCounts,
     config: QualtranPhysicalConfig,
 ) -> bool:
     probe = PhysicalDistances(
@@ -63,69 +69,103 @@ def _factory_error_exceeds_budget(
         qec_scheme=make_qec_scheme(config.qec_scheme), physical_error=config.physical_error_rate
     )
     error = make_factory(probe).factory_error(
-        GateCounts(t=gates_n_t, toffoli=gates_n_ccz), error_model
+        GateCounts(t=int(gates.t), toffoli=int(gates.toffoli)), error_model
     )
     return not math.isfinite(error) or error > config.factory_error_budget
+
+
+def _meets_error_budgets(
+    resources: QualtranPhysicalResources, config: QualtranPhysicalConfig
+) -> bool:
+    return (
+        resources.physical_failure_prob <= config.physical_failure_threshold
+        and resources.factory_error <= config.factory_error_budget
+        and resources.data_error <= config.data_error_budget
+    )
+
+
+def _repetitions_for_candidate(
+    p_alg: float,
+    synthesis_error_budget: float,
+    factory_error: float,
+    data_error: float,
+    final_failure_threshold: float,
+) -> int | None:
+    try:
+        p_run = run_success_lower_bound(p_alg, synthesis_error_budget, factory_error, data_error)
+        return repetitions_for_failure(p_run, final_failure_threshold)
+    except ValueError:
+        return None
+
+
+def _candidate_key(
+    distances: PhysicalDistances,
+    resources: QualtranPhysicalResources,
+    repetitions: int,
+) -> CandidateKey:
+    """総 space-time volume n_phys * R * C_run を主キーにする。"""
+    per_shot = resources.physical_qubits * resources.n_cycles
+    return (
+        per_shot * repetitions,
+        per_shot,
+        repetitions,
+        resources.physical_qubits,
+        resources.n_cycles,
+        _DATA_BLOCK_ORDER[distances.data_block],
+        distances.data_d,
+        resources.factory_physical_qubits,
+        resources.data_physical_qubits,
+    )
+
+
+def _iter_data_candidates(factory: FactoryName, dists: FactoryDists) -> Iterator[PhysicalDistances]:
+    kwargs = _distance_kwargs(factory, dists)
+    for data_block in SWEPT_DATA_BLOCKS:
+        for data_d in SEARCH_DATA_DS:
+            yield PhysicalDistances(factory=factory, data_block=data_block, data_d=data_d, **kwargs)
 
 
 def search_physical_configuration(
     logical: LogicalResources,
     demand: MagicStateDemand,
     config: QualtranPhysicalConfig,
+    *,
+    p_alg: float,
+    synthesis_error_budget: float,
+    final_failure_threshold: float,
 ) -> tuple[PhysicalDistances, QualtranPhysicalResources]:
+    gates = to_algorithm_summary(logical, demand, config.factory).n_logical_gates
+
     best: tuple[PhysicalDistances, QualtranPhysicalResources] | None = None
-    best_key: tuple[float, int, int, int, int, int, int] | None = None
+    best_key: CandidateKey | None = None
     best_physical_failure = math.inf
     n_evaluated = 0
 
-    def consider(distances: PhysicalDistances) -> None:
-        nonlocal best, best_key, best_physical_failure, n_evaluated
-        try:
-            resources = estimate_physical_resources(logical, demand, config, distances)
-        except OverflowError:
-            return
-        n_evaluated += 1
-        physical_failure = resources.physical_failure_prob
-        best_physical_failure = min(best_physical_failure, physical_failure)
-        # aggregate だけでなく factory / data を個別にもチェックする
-        # (Beverland 流の等分 budget)。
-        if not (
-            physical_failure <= config.physical_failure_threshold
-            and resources.factory_error <= config.factory_error_budget
-            and resources.data_error <= config.data_error_budget
-        ):
-            return
-        one_shot_qubit_hours = resources.physical_qubits * resources.duration_hr
-        key = (
-            one_shot_qubit_hours,
-            resources.physical_qubits,
-            resources.n_cycles,
-            SWEPT_DATA_BLOCKS.index(distances.data_block),
-            distances.data_d,
-            resources.factory_physical_qubits,
-            resources.data_physical_qubits,
-        )
-        if best is None or (best_key is not None and key < best_key):
-            best = (distances, resources)
-            best_key = key
-
-    summary = to_algorithm_summary(logical, demand, config.factory)
-    gates = summary.n_logical_gates
-    for dists in _iter_distance_candidates(config.factory):
-        if _factory_error_exceeds_budget(
-            config.factory, dists, int(gates.t), int(gates.toffoli), config
-        ):
+    for dists in _iter_factory_distances(config.factory):
+        if _factory_error_exceeds_budget(config.factory, dists, gates, config):
             continue
-        for data_block in SWEPT_DATA_BLOCKS:
-            for data_d in SEARCH_DATA_DS:
-                consider(
-                    PhysicalDistances(
-                        factory=config.factory,
-                        data_block=data_block,
-                        data_d=data_d,
-                        **_distance_kwargs(config.factory, dists),
-                    )
-                )
+        for distances in _iter_data_candidates(config.factory, dists):
+            try:
+                resources = estimate_physical_resources(logical, demand, config, distances)
+            except OverflowError:
+                continue
+            n_evaluated += 1
+            best_physical_failure = min(best_physical_failure, resources.physical_failure_prob)
+            if not _meets_error_budgets(resources, config):
+                continue
+            repetitions = _repetitions_for_candidate(
+                p_alg,
+                synthesis_error_budget,
+                resources.factory_error,
+                resources.data_error,
+                final_failure_threshold,
+            )
+            if repetitions is None:
+                continue
+            key = _candidate_key(distances, resources, repetitions)
+            if best_key is None or key < best_key:
+                best, best_key = (distances, resources), key
+
     if best is None:
         raise ValueError(
             "no configuration satisfies physical_failure_prob <="

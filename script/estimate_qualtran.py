@@ -37,7 +37,7 @@ PHYSICAL_CONFIG = QualtranPhysicalConfig(
     physical_failure_threshold=PHYSICAL_FAILURE_THRESHOLD,
     factory_error_budget=FACTORY_ERROR_BUDGET,
     data_error_budget=DATA_ERROR_BUDGET,
-    factory="ccz2t",
+    factory="fifteen_to_one",
 )
 
 

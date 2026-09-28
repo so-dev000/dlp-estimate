@@ -3,6 +3,7 @@ docs/
 
 # results
 results/*
+!results/qualtran/
 
 # uv virtual environment
 .venv/

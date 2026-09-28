@@ -21,7 +21,6 @@ def run_success_lower_bound(
     eps_factory: float,
     eps_data: float,
 ) -> float:
-    """FT 実装誤差込みの 1-run 成功確率下限"""
     p = validate_probability(p_alg, "p_alg", endpoints=True)
 
     eps_impl = eps_syn + eps_factory + eps_data
