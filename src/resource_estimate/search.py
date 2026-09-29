@@ -42,6 +42,22 @@ class EvalRow(TypedDict):
     exponent_bits: int  # 2つの指数レジスタ共通幅 Mosca構成 n=ceil(log2(2q))+1
     # Physical-model inputs
     logical_qubits: int  # n_algo_qubits ancillaを含む最大同時使用数
+    # T需要へ変換前 (回転合成前) の logical gate raw count
+    logical_t: int
+    logical_toffoli: int
+    logical_cswap: int
+    logical_and_bloq: int
+    logical_clifford: int
+    logical_rotation: int
+    logical_measurement: int
+    # 回転合成後・magic-state需要への畳み込み前 (rotation==0) の discrete count
+    discrete_t: int
+    discrete_toffoli: int
+    discrete_cswap: int
+    discrete_and_bloq: int
+    discrete_clifford: int
+    discrete_rotation: int
+    discrete_measurement: int
     n_t_states: int  # factoryに渡すT需要 (fifteen_to_oneではCCZ畳み込み後)
     n_ccz_states: int  # factoryに渡すCCZ需要 (fifteen_to_oneでは0)
     n_t_states_pre_fold: int  # CCZ→T畳み込み前の素のT需要 (native + 回転合成)
@@ -109,6 +125,20 @@ def eval_point(
         "field_bits": spec.field_bits,
         "exponent_bits": shor.exponent_bits,
         "logical_qubits": logical.logical_qubits,
+        "logical_t": logical.t,
+        "logical_toffoli": logical.toffoli,
+        "logical_cswap": logical.cswap,
+        "logical_and_bloq": logical.and_bloq,
+        "logical_clifford": logical.clifford,
+        "logical_rotation": logical.rotation,
+        "logical_measurement": logical.measurement,
+        "discrete_t": int(discrete_gates.t),
+        "discrete_toffoli": int(discrete_gates.toffoli),
+        "discrete_cswap": int(discrete_gates.cswap),
+        "discrete_and_bloq": int(discrete_gates.and_bloq),
+        "discrete_clifford": int(discrete_gates.clifford),
+        "discrete_rotation": int(discrete_gates.rotation),
+        "discrete_measurement": int(discrete_gates.measurement),
         "n_t_states": n_t,
         "n_ccz_states": n_ccz,
         "n_t_states_pre_fold": demand.n_t_states,
