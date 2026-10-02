@@ -13,14 +13,9 @@ dependencies = [
     "plotly==7.1.0",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
-    "qret-cli-bundle",
-    "qualtran==0.7.0",
-    "quri-parts-qret==0.27.0",
-    "quri-parts-qsub==0.27.0",
-    "streamlit==1.64.0",
+    "qualtran",
     "sympy==1.14.0",
     "tqdm>=4.60",
-    "watchdog>=6.0.0",
 ]
 
 [build-system]
@@ -56,7 +51,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.uv.sources]
-qret-cli-bundle = { git = "https://github.com/QunaSys/quration-cli-bundle.git" }
+qualtran = { git = "https://github.com/quantumlib/Qualtran.git", branch = "main" }
 
 [dependency-groups]
 dev = [
