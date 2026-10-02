@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from qualtran import Adjoint, Bloq, QUInt
 from qualtran.bloqs.basic_gates import IntEffect, IntState
+from qualtran.bloqs.mcmt.classically_controlled import ClassicallyControlled
 from qualtran.bloqs.mod_arithmetic import CModAdd, CModAddK, CtrlScaleModAdd
 from qualtran.bloqs.qft import QFTTextBook
 from qualtran.resource_counting import (
@@ -28,6 +29,17 @@ class LogicalResources:
     clifford: int
     rotation: int
     measurement: int
+
+
+class FeedForwardQECGatesCost(QECGatesCost):
+    def compute(
+        self,
+        bloq: Bloq,
+        get_callee_cost: Callable[[Bloq], GateCounts],
+    ) -> GateCounts:
+        if isinstance(bloq, ClassicallyControlled):
+            return get_callee_cost(bloq.subbloq)
+        return super().compute(bloq, get_callee_cost)
 
 
 class FastQubitCount(QubitCount):
@@ -65,13 +77,16 @@ class FastQubitCount(QubitCount):
                 + 1
             )
 
+        if isinstance(bloq, ClassicallyControlled):
+            return get_callee_cost(bloq.subbloq)
+
         return super().compute(bloq, get_callee_cost)
 
 
 def estimate_logical_resources(bloq: Bloq) -> LogicalResources:
     gates = get_cost_value(
         bloq,
-        QECGatesCost(legacy_shims=False),
+        FeedForwardQECGatesCost(legacy_shims=False),
     )
 
     logical_qubits = int(
