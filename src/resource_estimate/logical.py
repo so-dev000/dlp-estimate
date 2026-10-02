@@ -1,11 +1,9 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from qualtran import Adjoint, Bloq, QUInt
-from qualtran.bloqs.basic_gates import IntEffect, IntState
+from qualtran import Bloq, QUInt
 from qualtran.bloqs.mcmt.classically_controlled import ClassicallyControlled
-from qualtran.bloqs.mod_arithmetic import CModAdd, CModAddK, CtrlScaleModAdd
-from qualtran.bloqs.qft import QFTTextBook
+from qualtran.bloqs.mod_arithmetic import CModAdd, CtrlScaleModAdd
 from qualtran.resource_counting import (
     GateCounts,
     QECGatesCost,
@@ -48,22 +46,6 @@ class FastQubitCount(QubitCount):
         bloq: Bloq,
         get_callee_cost: Callable[[Bloq], SymbolicInt],
     ) -> SymbolicInt:
-        if isinstance(bloq, (IntState, IntEffect)):
-            return bloq.bitsize
-
-        if isinstance(bloq, QFTTextBook):
-            return bloq.bitsize
-
-        if isinstance(bloq, Adjoint):
-            return get_callee_cost(bloq.subbloq)
-
-        if isinstance(bloq, CModAddK):
-            return get_callee_cost(
-                CModAdd(
-                    QUInt(bloq.bitsize),
-                    mod=bloq.mod,
-                )
-            )
 
         if isinstance(bloq, CtrlScaleModAdd):
             return (
