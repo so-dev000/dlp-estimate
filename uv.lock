@@ -714,6 +714,7 @@ dependencies = [
     { name = "quri-parts-qsub" },
     { name = "streamlit" },
     { name = "sympy" },
+    { name = "tqdm" },
     { name = "watchdog" },
 ]
 
@@ -739,6 +740,7 @@ requires-dist = [
     { name = "quri-parts-qsub", specifier = "==0.27.0" },
     { name = "streamlit", specifier = "==1.64.0" },
     { name = "sympy", specifier = "==1.14.0" },
+    { name = "tqdm", specifier = ">=4.60" },
     { name = "watchdog", specifier = ">=6.0.0" },
 ]
 

@@ -3,6 +3,7 @@ from collections.abc import Iterator
 
 from qualtran.resource_counting import GateCounts
 from qualtran.surface_code import LogicalErrorModel
+from tqdm import tqdm
 
 from .logical import LogicalResources, MagicStateDemand
 from .physical import (
@@ -141,14 +142,26 @@ def search_physical_configuration(
     best_physical_failure = math.inf
     n_evaluated = 0
 
-    for dists in _iter_factory_distances(config.factory):
+    factory_dists = list(_iter_factory_distances(config.factory))
+    n_data = len(SWEPT_DATA_BLOCKS) * len(SEARCH_DATA_DS)
+    pbar = tqdm(
+        total=len(factory_dists) * n_data,
+        desc="physical search",
+        unit="cand",
+        position=1,
+        leave=False,
+    )
+    for dists in factory_dists:
         if _factory_error_exceeds_budget(config.factory, dists, gates, config):
+            pbar.update(n_data)
             continue
         for distances in _iter_data_candidates(config.factory, dists):
             try:
                 resources = estimate_physical_resources(logical, demand, config, distances)
             except OverflowError:
                 continue
+            finally:
+                pbar.update(1)
             n_evaluated += 1
             best_physical_failure = min(best_physical_failure, resources.physical_failure_prob)
             if not _meets_error_budgets(resources, config):
@@ -165,6 +178,7 @@ def search_physical_configuration(
             key = _candidate_key(distances, resources, repetitions)
             if best_key is None or key < best_key:
                 best, best_key = (distances, resources), key
+    pbar.close()
 
     if best is None:
         raise ValueError(

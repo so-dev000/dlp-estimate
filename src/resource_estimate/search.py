@@ -3,6 +3,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal, NotRequired, TypedDict
 
+from tqdm import tqdm
+
 from ..field import DLPInstance, Factorization, FieldElement, FieldSpec, PolynomialCoefficients
 from ..shor import DeprecatedShorDLP, ShorDLP
 from ..validation import validate_probability
@@ -239,7 +241,7 @@ def sweep(
     bloq: BloqVariant = "current",
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for params in points:
+    for params in tqdm(points, desc="points", unit="pt", position=0):
         try:
             row: dict[str, Any] = dict(
                 eval_point(
@@ -250,7 +252,7 @@ def sweep(
                     bloq,
                 )
             )
-            print(f"Evaluated: {params.label}")
+            tqdm.write(f"Evaluated: {params.label}")
         except Exception as e:
             row = {
                 "label": params.label,
