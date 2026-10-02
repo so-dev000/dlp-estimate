@@ -21,11 +21,9 @@ def _validate_exponentiation_inputs(
 def _squared_constants(
     field: FiniteField, base: FieldElement, exponent_bits: int
 ) -> tuple[FieldElement, ...]:
-    constants = []
-    constant = base
-    for _ in range(exponent_bits):
-        constants.append(constant)
-        constant = field.mul(constant, constant)
+    constants = [base] * exponent_bits
+    for i in range(exponent_bits - 2, -1, -1):
+        constants[i] = field.mul(constants[i + 1], constants[i + 1])
     return tuple(constants)
 
 
@@ -76,10 +74,9 @@ class DeprecatedFieldExponentiation(Bloq):
         constants = _squared_constants(self.field, self.base, self.exponent_bits)
 
         for i, constant in enumerate(constants):
-            # 指数はbig-endianなので、第i定数 base**(2**i) は bits[-1-i] で指定する
-            bits[-1 - i], x = bb.add_t(
+            bits[i], x = bb.add_t(
                 get_controlled_const_mul(self.spec, constant),
-                ctrl=bits[-1 - i],
+                ctrl=bits[i],
                 x=x,
             )
 
