@@ -16,12 +16,12 @@ SCHEMA = 1
 
 def _coeffs(expr, x, n, p):
     poly = sp.Poly(expr, x, modulus=p)
-    return tuple(int(poly.nth(i)) % p for i in range(n + 1))
+    return tuple(int(poly.nth(i)) % p for i in range(n, -1, -1))
 
 
 def _quad(field, c, t):
     def const(a):
-        return (a,) + (0,) * (field.spec.r - 1)
+        return (0,) * (field.spec.r - 1) + (a,)
 
     return field.add(
         const(c[0]),
@@ -31,7 +31,7 @@ def _quad(field, c, t):
 
 def _dense(values):
     return {
-        "encoding": "dense_coefficients_low_to_high",
+        "encoding": "dense_coefficients_high_to_low",
         "values": list(map(str, values)),
     }
 
@@ -55,8 +55,8 @@ def generate_dgp21():
     ext = (x - t) ** 2 + c * (x - t) + 1
 
     f = _coeffs(sp.resultant(base, ext, t), x, 6, p)
-    if f[-1] != 1:
-        inv = pow(f[-1], -1, p)
+    if f[0] != 1:
+        inv = pow(f[0], -1, p)
         f = tuple(inv * v % p for v in f)
 
     gb = sp.groebner([base, ext], t, x, order="lex", modulus=p)
@@ -74,7 +74,7 @@ def generate_dgp21():
     )
 
     field = FiniteField(FieldSpec(p=p, r=6, f=f))
-    x_flat = (0, 1, 0, 0, 0, 0)
+    x_flat = (0, 0, 0, 0, 1, 0)
 
     target = field.add(
         _quad(field, a, t_flat),

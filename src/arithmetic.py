@@ -229,7 +229,7 @@ class ControlledConstMul(Bloq):
 
 @cache
 def _qgf_for_spec(spec: FieldSpec) -> QGF:
-    return QGF(2, spec.r, tuple(i for i, coeff in enumerate(spec.f) if coeff))
+    return QGF(2, spec.r, tuple(spec.r - i for i, coeff in enumerate(spec.f) if coeff))
 
 
 class _GF2MulKWithExplicitSwaps(GF2MulK):
@@ -324,18 +324,18 @@ class ControlledGF2ConstMul(Bloq):
         if self.c == self.field.one:
             return {"ctrl": ctrl, "x": x}
 
-        constant = sum(bit << i for i, bit in enumerate(self.c))
+        constant = sum(bit << (self.spec.r - 1 - i) for i, bit in enumerate(self.c))
         qgf = _qgf_for_spec(self.spec)
         multiplication = _GF2MulKWithExplicitSwaps(dtype=qgf, const=constant).controlled()
 
         assert isinstance(x, np.ndarray)
 
-        # QGFのビット列は高次数順なので、外部の係数ビットを反転してjoinし、出力をsplitして再び反転
+        # 係数列とQGFのビット列はともに高次数順。
         bits = np.array([bb.split(coefficient)[0] for coefficient in x], dtype=object)
-        g = bb.join(bits[::-1], dtype=qgf)
+        g = bb.join(bits, dtype=qgf)
         ctrl, g = bb.add_t(multiplication, ctrl=ctrl, g=g)
 
-        bits = bb.split(g)[::-1]
+        bits = bb.split(g)
         x = np.array([bb.join([bit], dtype=QUInt(1)) for bit in bits], dtype=object)
         return {"ctrl": ctrl, "x": x}
 

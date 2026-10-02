@@ -12,16 +12,15 @@ from sympy.polys.galoistools import (
     gf_strip,
 )
 
-type FieldElement = tuple[int, ...]  # (a_0, a_1, ..., a_{r-1})
-type PolynomialCoefficients = tuple[int, ...]  # (c_0, c_1, ..., c_r)
+type FieldElement = tuple[int, ...]  # (a_{r-1}, ..., a_1, a_0)
+type PolynomialCoefficients = tuple[int, ...]  # (c_r, ..., c_1, c_0)
 type FieldMatrix = tuple[FieldElement, ...]
-type Bits = tuple[int, ...]
 type Factorization = tuple[tuple[int, int], ...]  # (prime, exponent)
 
 
 @dataclass(frozen=True, kw_only=True)
 class FieldSpec:
-    """GF(p^r)の仕様。素数性・既約性はFiniteField.validate()で別途検証する。"""
+    """GF(p^r)の仕様。fは高次数順。素数性・既約性はFiniteField.validate()で別途検証する。"""
 
     p: int
     r: int
@@ -36,10 +35,10 @@ class FieldSpec:
             raise ValueError(f"f must be a coefficient tuple of length {self.r + 1}")
         if any(type(c) is not int or not 0 <= c < self.p for c in self.f):
             raise ValueError(f"f coefficients must be integers in [0, {self.p})")
-        if self.f[-1] != 1:
+        if self.f[0] != 1:
             raise ValueError("f must be monic")
-        if self.r == 1 and self.f != (0, 1):
-            raise ValueError("f must be (0, 1) for a prime field")
+        if self.r == 1 and self.f != (1, 0):
+            raise ValueError("f must be (1, 0) for a prime field")
 
     @property
     def order(self) -> int:
@@ -58,9 +57,10 @@ class FieldSpec:
 
 
 def format_polynomial(coeffs: PolynomialCoefficients) -> str:
-    """低次数順の係数tupleを多項式文字列表現にする。例: (2, 0, 1) -> "2 + X^2"。"""
+    """高次数順の係数tupleを多項式文字列表現にする。例: (1, 0, 2) -> "X^2 + 2"。"""
     terms = []
-    for power, coeff in enumerate(coeffs):
+    for index, coeff in enumerate(coeffs):
+        power = len(coeffs) - 1 - index
         if coeff == 0:
             continue
         if power == 0:
@@ -85,7 +85,7 @@ class FiniteField:
     def __init__(self, spec: FieldSpec) -> None:
         """軽量に構築する。体の検証は推定入口で明示的に行う。"""
         self.spec = spec
-        self._modulus = list(reversed(spec.f))
+        self._modulus = list(spec.f)
 
     def validate(self) -> None:
         """pの素数性とfの既約性を必要時に明示的に検証する。"""
@@ -96,10 +96,10 @@ class FiniteField:
 
     def _poly(self, a: FieldElement) -> list[int]:
         """public演算で検証済みの要素をSymPy形式へ変換する。"""
-        return gf_strip(list(reversed(a)))
+        return gf_strip(list(a))
 
     def _from_poly(self, a: list[int]) -> FieldElement:
-        return tuple(reversed(a)) + (0,) * (self.spec.r - len(a))
+        return (0,) * (self.spec.r - len(a)) + tuple(a)
 
     def is_zero(self, a: FieldElement) -> bool:
         """体の構築を伴わず、係数の形と零かどうかを確認する。"""
@@ -109,12 +109,12 @@ class FiniteField:
     @property
     def zero(self) -> FieldElement:
         """加法単位元を返す。"""
-        return (0,) * self.spec.r  # (0, 0, ..., 0) : 0 + 0*X + ... + 0*X^(r-1) = 0
+        return (0,) * self.spec.r
 
     @property
     def one(self) -> FieldElement:
         """乗法単位元を返す。"""
-        return (1,) + (0,) * (self.spec.r - 1)  # (1, 0, ..., 0) : 1 + 0*X + ... + 0*X^(r-1) = 1
+        return (0,) * (self.spec.r - 1) + (1,)
 
     def add(self, a: FieldElement, b: FieldElement) -> FieldElement:
         """和 a + b を返す。"""
@@ -166,18 +166,19 @@ class FiniteField:
             return (pow(a[0], exponent, self.spec.p),)
         return self._from_poly(gf_pow_mod(self._poly(a), exponent, self._modulus, self.spec.p, ZZ))
 
-    @lru_cache(maxsize=4096)  # noqa: B019 - bounded; shared_field also retains these objects.
+    @lru_cache(maxsize=4096)  # noqa: B019
     def const_mul_matrix(self, c: FieldElement) -> FieldMatrix:
-        """GF(p)上の定数乗算行列を返す。第j列は c * X^j mod f の係数列。"""
+        """高次数順の基底に対する定数乗算行列。第j列は c * X^(r-1-j) mod f。"""
         _validate_element(c, self.spec)
         r = self.spec.r
-        columns = [c]
-        # c*X^jからXを一つ掛けて次の列を得る。一般の乗算をr回繰り返さない。
-        for _ in range(1, r):
-            previous = columns[-1]
-            shifted = (0, *previous[:-1])
-            columns.append(
-                tuple((shifted[i] - previous[-1] * self.spec.f[i]) % self.spec.p for i in range(r))
+        columns = [self.zero] * r
+        columns[-1] = c
+        # 右端のcからXを一つずつ掛け、左隣の列を得る。一般の乗算をr回繰り返さない。
+        for j in range(r - 2, -1, -1):
+            previous = columns[j + 1]
+            shifted = (*previous[1:], 0)
+            columns[j] = tuple(
+                (shifted[i] - previous[0] * self.spec.f[i + 1]) % self.spec.p for i in range(r)
             )
         return tuple(tuple(column[i] for column in columns) for i in range(r))
 
@@ -185,16 +186,6 @@ class FiniteField:
 @cache
 def shared_field(spec: FieldSpec) -> FiniteField:
     return FiniteField(spec)
-
-
-def encode(element: FieldElement, spec: FieldSpec) -> Bits:
-    """
-    係数を低次数順に、各係数をspec.coefficient_bitsビットのbig-endianで符号化する。
-    例: p=5, r=3, element=(3, 0, 4) の場合、(3, 0, 4) -> (011, 000, 100) -> (0,1,1,0,0,0,1,0,0)
-    """
-    n = spec.coefficient_bits
-    _validate_element(element, spec)
-    return tuple((a >> shift) & 1 for a in element for shift in range(n - 1, -1, -1))
 
 
 def _validate_factorization(

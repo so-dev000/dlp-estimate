@@ -30,8 +30,9 @@ def _squared_constants(
 
 
 @attrs.frozen(kw_only=True)
-class FieldExponentiation(Bloq):
+class DeprecatedFieldExponentiation(Bloq):
     """
+    Deprecated: 旧構成 (教科書版 ShorDLP 用)
     |a>|x> -> |a>|x * base^a>
     指数 a を
         a = Σ a_i 2^i,  a_i ∈ {0, 1}
@@ -107,8 +108,8 @@ class FieldExponentiation(Bloq):
         result = self.field.mul(power, coefficients)
         return {"exponent": exponent, "x": np.array(result, dtype=object)}
 
-    def adjoint(self) -> FieldExponentiation:
-        return FieldExponentiation(
+    def adjoint(self) -> DeprecatedFieldExponentiation:
+        return DeprecatedFieldExponentiation(
             spec=self.spec,
             base=self.field.inv(self.base),
             exponent_bits=self.exponent_bits,

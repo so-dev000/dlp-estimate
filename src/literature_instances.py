@@ -33,11 +33,11 @@ def _decode_coefficients(
 ) -> tuple[int, ...]:
     """
     Canonical JSON上の多項式・有限体要素を、
-    低次数順のdense coefficient tupleへ変換する。
+    高次数順のdense coefficient tupleへ変換する。
     """
     encoding = value.get("encoding")
 
-    if encoding == "dense_coefficients_low_to_high":
+    if encoding == "dense_coefficients_high_to_low":
         raw_values = value.get("values")
         if not isinstance(raw_values, list):
             raise ValueError("dense coefficient encoding requires a values list")
@@ -59,7 +59,7 @@ def _decode_coefficients(
                 raise ValueError(f"invalid GF(2) exponent {exponent}")
 
             # GF(2)上の加算なので重複した場合はXORする。
-            coefficients[exponent] ^= 1
+            coefficients[length - 1 - exponent] ^= 1
 
         return tuple(coefficients)
 
@@ -94,7 +94,7 @@ def _decode_coefficients(
                     f"expected {expected_sha256}, got {actual_sha256}"
                 )
 
-        return tuple((packed >> exponent) & 1 for exponent in range(length))
+        return tuple((packed >> exponent) & 1 for exponent in range(length - 1, -1, -1))
 
     raise ValueError(f"unsupported coefficient encoding: {encoding!r}")
 

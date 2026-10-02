@@ -1,10 +1,10 @@
 import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from ..field import DLPInstance, Factorization, FieldElement, FieldSpec, PolynomialCoefficients
-from ..shor import ShorDLP
+from ..shor import DeprecatedShorDLP, ShorDLP
 from ..validation import validate_probability
 from .configuration import search_physical_configuration
 from .logical import (
@@ -19,6 +19,18 @@ from .success import (
     single_run_success_lower_bound,
     total_failure_upper_bound,
 )
+
+BloqVariant = Literal["current", "deprecated"]
+
+
+def build_shor_bloq(
+    instance: DLPInstance, bloq: BloqVariant = "current"
+) -> ShorDLP | DeprecatedShorDLP:
+    """引数で現行構成とdeprecated構成を切り替える。"""
+    if bloq == "current":
+        return ShorDLP(instance=instance)
+    if bloq == "deprecated":
+        return DeprecatedShorDLP(instance=instance)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -102,6 +114,7 @@ def eval_point(
     physical_config: QualtranPhysicalConfig,
     final_failure_threshold: float,
     synthesis_error_budget: float,
+    bloq: BloqVariant = "current",
 ) -> EvalRow:
     validate_probability(final_failure_threshold, "final_failure_threshold")
     validate_probability(synthesis_error_budget, "synthesis_error_budget")
@@ -109,7 +122,7 @@ def eval_point(
     instance = DLPInstance(
         spec=spec, q=params.q, q_factors=params.q_factors, g=params.g, h=params.h
     )
-    shor = ShorDLP(instance=instance)
+    shor = build_shor_bloq(instance, bloq)
     logical = estimate_logical_resources(shor)
     discrete_gates = synthesize_rotations(logical, synthesis_error_budget)
     demand = estimate_magic_state_demand(discrete_gates)
@@ -223,12 +236,19 @@ def sweep(
     final_failure_threshold: float,
     on_row: Callable[[dict[str, Any]], None],
     synthesis_error_budget: float,
+    bloq: BloqVariant = "current",
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for params in points:
         try:
             row: dict[str, Any] = dict(
-                eval_point(params, physical_config, final_failure_threshold, synthesis_error_budget)
+                eval_point(
+                    params,
+                    physical_config,
+                    final_failure_threshold,
+                    synthesis_error_budget,
+                    bloq,
+                )
             )
             print(f"Evaluated: {params.label}")
         except Exception as e:

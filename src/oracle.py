@@ -5,13 +5,14 @@ import numpy as np
 from qualtran import Bloq, BloqBuilder, QUInt, Register, Signature, SoquetT
 from qualtran.simulation.classical_sim import ClassicalValT
 
-from .exponentiation import FieldExponentiation
+from .exponentiation import DeprecatedFieldExponentiation
 from .field import DLPInstance, FiniteField, shared_field
 
 
 @attrs.frozen(kw_only=True)
-class DLPOracle(Bloq):
+class DeprecatedDLPOracle(Bloq):
     """
+    Deprecated: 旧構成 (教科書版 ShorDLP 用)
     |a>|b>|y> -> |a>|b>|y * h^a g^b>。
     """
 
@@ -47,13 +48,13 @@ class DLPOracle(Bloq):
 
         # |a>|y> -> |a>|y * h^a> を直接 y 上で計算する
         a, y = bb.add_t(
-            FieldExponentiation(spec=spec, base=self.instance.h, exponent_bits=m),
+            DeprecatedFieldExponentiation(spec=spec, base=self.instance.h, exponent_bits=m),
             exponent=a,
             x=y,
         )
         # |b>|y> -> |b>|y * g^b> = |b>|x * h^a g^b> を直接 y 上で計算する
         b, y = bb.add_t(
-            FieldExponentiation(spec=spec, base=self.instance.g, exponent_bits=m),
+            DeprecatedFieldExponentiation(spec=spec, base=self.instance.g, exponent_bits=m),
             exponent=b,
             x=y,
         )
