@@ -14,7 +14,7 @@ from qualtran.surface_code import AlgorithmSummary, beverland_et_al_model
 from qualtran.surface_code.rotation_cost_model import BeverlandEtAlRotationCost
 from qualtran.symbolics import SymbolicInt
 
-from ..validation import validate_probability
+from ...validation import validate_probability
 
 
 @dataclass(frozen=True, kw_only=True)

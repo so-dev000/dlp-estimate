@@ -19,7 +19,7 @@ from qualtran.surface_code import (
 )
 from qualtran.surface_code.ccz2t_factory import CCZ2TFactory
 
-from ..validation import validate_probability
+from ...validation import validate_probability
 from .logical import LogicalResources, MagicStateDemand
 
 FactoryName = Literal["fifteen_to_one", "ccz2t"]

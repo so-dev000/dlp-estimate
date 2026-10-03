@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.literature_instances import FP6_LITERATURE_INSTANCES
-from src.resource_estimate.configuration import (
+from src.resource_estimate.qualtran.configuration import (
     CCZ2T_L1_DS,
     CCZ2T_L2_DS,
     FIFTEEN_TO_ONE_DMS,
@@ -17,8 +17,8 @@ from src.resource_estimate.configuration import (
     SEARCH_DATA_DS,
     SWEPT_DATA_BLOCKS,
 )
-from src.resource_estimate.physical import QualtranPhysicalConfig
-from src.resource_estimate.search import BloqVariant, EvalRow, sweep
+from src.resource_estimate.qualtran.physical import QualtranPhysicalConfig
+from src.resource_estimate.qualtran.search import BloqVariant, EvalRow, sweep
 
 TOTAL_ERROR_BUDGET = 1 / 3
 

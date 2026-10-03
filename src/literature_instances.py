@@ -6,7 +6,7 @@ from importlib.resources import files
 from typing import Any
 
 from src.field import Factorization
-from src.resource_estimate.search import Params
+from src.instances import Params
 
 _SCHEMA_VERSION = 1
 _LITERATURE_DATA_PACKAGE = "src.literature_data"

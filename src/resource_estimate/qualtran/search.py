@@ -1,13 +1,19 @@
 import contextlib
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any, Literal, NotRequired, TypedDict
 
 from tqdm import tqdm
 
-from ..field import DLPInstance, Factorization, FieldElement, FieldSpec, PolynomialCoefficients
-from ..shor import DeprecatedShorDLP, ShorDLP
-from ..validation import validate_probability
+from ...circuits.shor import DeprecatedShorDLP, ShorDLP
+from ...field import DLPInstance, FieldSpec
+from ...instances import Params
+from ...validation import validate_probability
+from ..success import (
+    repetitions_for_failure,
+    run_success_lower_bound,
+    single_run_success_lower_bound,
+    total_failure_upper_bound,
+)
 from .configuration import search_physical_configuration
 from .logical import (
     estimate_logical_resources,
@@ -15,12 +21,6 @@ from .logical import (
     synthesize_rotations,
 )
 from .physical import QualtranPhysicalConfig
-from .success import (
-    repetitions_for_failure,
-    run_success_lower_bound,
-    single_run_success_lower_bound,
-    total_failure_upper_bound,
-)
 
 BloqVariant = Literal["current", "deprecated"]
 
@@ -33,20 +33,6 @@ def build_shor_bloq(
         return ShorDLP(instance=instance)
     if bloq == "deprecated":
         return DeprecatedShorDLP(instance=instance)
-
-
-@dataclass(frozen=True, kw_only=True)
-class Params:
-    """検証済みの DLP 入力。eval_point では重い体・位数・部分群検証を行わない。"""
-
-    label: str = ""
-    p: int
-    r: int
-    f: PolynomialCoefficients
-    q: int
-    q_factors: Factorization | None = None
-    g: FieldElement
-    h: FieldElement
 
 
 class EvalRow(TypedDict):

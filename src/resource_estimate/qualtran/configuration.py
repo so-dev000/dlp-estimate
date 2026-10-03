@@ -5,6 +5,7 @@ from qualtran.resource_counting import GateCounts
 from qualtran.surface_code import LogicalErrorModel
 from tqdm import tqdm
 
+from ..success import repetitions_for_failure, run_success_lower_bound
 from .logical import LogicalResources, MagicStateDemand
 from .physical import (
     DataBlockName,
@@ -17,7 +18,6 @@ from .physical import (
     make_qec_scheme,
     to_algorithm_summary,
 )
-from .success import repetitions_for_failure, run_success_lower_bound
 
 SEARCH_DATA_DS = tuple(range(3, 32, 2))
 FIFTEEN_TO_ONE_DXS = tuple(range(3, 34, 2))
