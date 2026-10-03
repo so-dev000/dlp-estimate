@@ -5,10 +5,10 @@ from qualtran.bloqs.arithmetic import XorK
 from qualtran.bloqs.basic_gates import Hadamard
 from qualtran.bloqs.qft import QFTTextBook
 
-from src.arithmetic import get_controlled_const_mul
-from src.semiclassical_qft import semiclassical_qft_step
+from src.circuits.arithmetic import get_controlled_const_mul
+from src.circuits.semiclassical_qft import semiclassical_qft_step
 
-from .field import DLPInstance, FieldElement, FiniteField, shared_field
+from ..field import DLPInstance, FieldElement, FiniteField, shared_field
 from .oracle import DeprecatedDLPOracle
 
 

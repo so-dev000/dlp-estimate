@@ -9,7 +9,7 @@ from qualtran.bloqs.gf_arithmetic.gf2_multiplication import SynthesizeLRCircuit
 from qualtran.bloqs.mod_arithmetic import CtrlScaleModAdd
 from qualtran.simulation.classical_sim import ClassicalValT
 
-from .field import FieldElement, FieldMatrix, FieldSpec, FiniteField, shared_field
+from ..field import FieldElement, FieldMatrix, FieldSpec, FiniteField, shared_field
 
 
 @attrs.frozen(kw_only=True)
@@ -228,11 +228,11 @@ class ControlledConstMul(Bloq):
 
 
 @cache
-def _qgf_for_spec(spec: FieldSpec) -> QGF:
+def qgf_for_spec(spec: FieldSpec) -> QGF:
     return QGF(2, spec.r, tuple(spec.r - i for i, coeff in enumerate(spec.f) if coeff))
 
 
-class _GF2MulKWithExplicitSwaps(GF2MulK):
+class GF2MulKWithExplicitSwaps(GF2MulK):
     """Qualtran 0.7.0 で制御 OFF 時にも残る暗黙の置換を、明示的な SWAP に置き換える。
     元のGF2MulKへ戻すとctrl=0でも値が変わる
     Issue作成済み
@@ -325,8 +325,8 @@ class ControlledGF2ConstMul(Bloq):
             return {"ctrl": ctrl, "x": x}
 
         constant = sum(bit << (self.spec.r - 1 - i) for i, bit in enumerate(self.c))
-        qgf = _qgf_for_spec(self.spec)
-        multiplication = _GF2MulKWithExplicitSwaps(dtype=qgf, const=constant).controlled()
+        qgf = qgf_for_spec(self.spec)
+        multiplication = GF2MulKWithExplicitSwaps(dtype=qgf, const=constant).controlled()
 
         assert isinstance(x, np.ndarray)
 

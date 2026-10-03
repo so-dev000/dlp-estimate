@@ -5,8 +5,8 @@ import numpy as np
 from qualtran import Bloq, BloqBuilder, QUInt, Register, Signature, SoquetT
 from qualtran.simulation.classical_sim import ClassicalValT
 
+from ..field import DLPInstance, FiniteField, shared_field
 from .exponentiation import DeprecatedFieldExponentiation
-from .field import DLPInstance, FiniteField, shared_field
 
 
 @attrs.frozen(kw_only=True)

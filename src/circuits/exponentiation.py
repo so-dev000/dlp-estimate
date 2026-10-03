@@ -5,8 +5,8 @@ import numpy as np
 from qualtran import Bloq, BloqBuilder, QUInt, Register, Signature, SoquetT
 from qualtran.simulation.classical_sim import ClassicalValT
 
+from ..field import FieldElement, FieldSpec, FiniteField, shared_field
 from .arithmetic import get_controlled_const_mul
-from .field import FieldElement, FieldSpec, FiniteField, shared_field
 
 
 def _validate_exponentiation_inputs(
