@@ -623,7 +623,6 @@ name = "dlp-estimate"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "cirq-core" },
     { name = "graphviz" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -631,6 +630,7 @@ dependencies = [
     { name = "plotly" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "qdk", extra = ["qre"] },
     { name = "qualtran" },
     { name = "sympy" },
     { name = "tqdm" },
@@ -644,7 +644,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cirq-core", specifier = "==1.7.0" },
     { name = "graphviz", specifier = "==0.20.3" },
     { name = "matplotlib", specifier = "==3.11.1" },
     { name = "numpy", specifier = "==2.5.2" },
@@ -652,6 +651,7 @@ requires-dist = [
     { name = "plotly", specifier = "==7.1.0" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "pytest-cov", specifier = "==7.1.0" },
+    { name = "qdk", extras = ["qre"], specifier = "==1.32.3" },
     { name = "qualtran", git = "https://github.com/quantumlib/Qualtran.git?branch=main" },
     { name = "sympy", specifier = "==1.14.0" },
     { name = "tqdm", specifier = ">=4.60" },
@@ -2118,6 +2118,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/60/b9/42b4b676fc30b7d52b2925adb8dd189e005f798bb2736ed7d1d47e391979/qdk-1.32.3-cp310-abi3-manylinux_2_35_x86_64.whl", hash = "sha256:9a434491e284036d2fe4e32aec6db5f384114bcb59c913d10e8e6df8bf30cee9", size = 8057973, upload-time = "2026-09-11T01:58:46.446Z" },
     { url = "https://files.pythonhosted.org/packages/c6/5d/2dfa8f49301c16b85aa303873d43b19759369cf69204a995d8597571272e/qdk-1.32.3-cp310-abi3-win_amd64.whl", hash = "sha256:7ccb218ca160e481e9fb50faf207df3116ed66b16b966753862f90581c96a157", size = 8582674, upload-time = "2026-09-11T01:58:48.79Z" },
     { url = "https://files.pythonhosted.org/packages/13/d5/bb22a428c6ead9af9c7f93aacbeb4fc31b3435e4f839b75e9c5ef3b0f0b8/qdk-1.32.3-cp310-abi3-win_arm64.whl", hash = "sha256:7b046eb4cd624670176207e3a0b4cbb44822c926f5c7a21f08bacd7c0a20a28a", size = 8041003, upload-time = "2026-09-11T01:58:50.908Z" },
+]
+
+[package.optional-dependencies]
+qre = [
+    { name = "pandas" },
 ]
 
 [[package]]
