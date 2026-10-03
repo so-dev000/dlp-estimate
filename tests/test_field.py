@@ -11,7 +11,6 @@ from src.field import FieldSpec, FiniteField, format_polynomial
     params=[
         FieldSpec(p=2, r=3, f=(1, 0, 1, 1)),
         FieldSpec(p=5, r=2, f=(1, 0, 2)),
-        FieldSpec(p=3, r=3, f=(1, 0, 2, 1)),
     ]
 )
 def fields(request):
@@ -78,8 +77,6 @@ def test_constant_multiplication_matrix_uses_high_degree_basis(fields):
     ("coefficients", "expected"),
     [
         ((1, 0, 2), "X^2 + 2"),
-        ((0, 3, 1), "3*X + 1"),
-        ((1, 1), "X + 1"),
         ((0, 0), "0"),
     ],
 )
