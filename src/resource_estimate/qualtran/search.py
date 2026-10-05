@@ -1,10 +1,10 @@
 import contextlib
 from collections.abc import Callable
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from tqdm import tqdm
 
-from ...circuits.shor import DeprecatedShorDLP, ShorDLP
+from ...circuits.shor import ShorDLP
 from ...field import DLPInstance, FieldSpec
 from ...instances import Params
 from ...validation import validate_probability
@@ -21,18 +21,6 @@ from .logical import (
     synthesize_rotations,
 )
 from .physical import QualtranPhysicalConfig
-
-BloqVariant = Literal["current", "deprecated"]
-
-
-def build_shor_bloq(
-    instance: DLPInstance, bloq: BloqVariant = "current"
-) -> ShorDLP | DeprecatedShorDLP:
-    """引数で現行構成とdeprecated構成を切り替える。"""
-    if bloq == "current":
-        return ShorDLP(instance=instance)
-    if bloq == "deprecated":
-        return DeprecatedShorDLP(instance=instance)
 
 
 class EvalRow(TypedDict):
@@ -102,7 +90,6 @@ def eval_point(
     physical_config: QualtranPhysicalConfig,
     final_failure_threshold: float,
     synthesis_error_budget: float,
-    bloq: BloqVariant = "current",
 ) -> EvalRow:
     validate_probability(final_failure_threshold, "final_failure_threshold")
     validate_probability(synthesis_error_budget, "synthesis_error_budget")
@@ -110,7 +97,7 @@ def eval_point(
     instance = DLPInstance(
         spec=spec, q=params.q, q_factors=params.q_factors, g=params.g, h=params.h
     )
-    shor = build_shor_bloq(instance, bloq)
+    shor = ShorDLP(instance=instance)
     logical = estimate_logical_resources(shor)
     discrete_gates = synthesize_rotations(logical, synthesis_error_budget)
     demand = estimate_magic_state_demand(discrete_gates)
@@ -224,7 +211,6 @@ def sweep(
     final_failure_threshold: float,
     on_row: Callable[[dict[str, Any]], None],
     synthesis_error_budget: float,
-    bloq: BloqVariant = "current",
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for params in tqdm(points, desc="points", unit="pt", position=0):
@@ -235,7 +221,6 @@ def sweep(
                     physical_config,
                     final_failure_threshold,
                     synthesis_error_budget,
-                    bloq,
                 )
             )
             tqdm.write(f"Evaluated: {params.label}")
