@@ -4,18 +4,19 @@ from qualtran import Bloq, BloqBuilder, CBit, QBit, QUInt, Register, Side, Signa
 from qualtran.bloqs.arithmetic import XorK
 from qualtran.bloqs.basic_gates import Hadamard
 
-from src.circuits.arithmetic import get_controlled_const_mul
+from src.circuits.arithmetic_gf2 import ControlledGF2ConstMul
+from src.circuits.arithmetic_modp import ControlledConstMul
 from src.circuits.semiclassical_qft import semiclassical_qft_step
 
-from ..field import DLPInstance, FieldElement, FiniteField, shared_field
+from ..field import DLPInstance, FieldElement, FieldSpec, FiniteField, shared_field
 
 
 def _squared_constants(
     field: FiniteField, base: FieldElement, exponent_bits: int
 ) -> tuple[FieldElement, ...]:
     """
-    baseの累乗定数をMSB順に返す
-    例: 3ビットなら (base^4, base^2, base)
+    (base^(2^{m-1}), ..., base^2, base)
+    a = Σ a_i 2^i に対し base^a = Π_i (base^(2^i))^a_i
     """
     constants = [base] * exponent_bits
     for i in range(exponent_bits - 2, -1, -1):
@@ -23,11 +24,20 @@ def _squared_constants(
     return tuple(constants)
 
 
+def get_controlled_const_mul(spec: FieldSpec, c: FieldElement) -> Bloq:
+    """標数2ではGF(2^r)専用、それ以外では奇標数用の制御付き定数乗算を返す。"""
+    if spec.p == 2:
+        return ControlledGF2ConstMul(spec=spec, c=c)
+    return ControlledConstMul(spec=spec, c=c)
+
+
 @attrs.frozen(kw_only=True)
 class ShorDLP(Bloq):
     """
     Overall Algorithm: https://arxiv.org/abs/1905.09749
     Qubit Recycling: https://arxiv.org/abs/quant-ph/0001066
+
+    |a>|b>|y> -> |a>|b>|y h^a g^b>, QFT^{-1} は半古典+recycling。
     """
 
     instance: DLPInstance
@@ -68,6 +78,7 @@ class ShorDLP(Bloq):
 
         outputs: dict[str, SoquetT] = {}
 
+        # |y> -> |y * h^a> -> |y * h^a g^b> を直接 y 上で計算する。
         for name, base in (("a", self.instance.h), ("b", self.instance.g)):
             constants = _squared_constants(self.field, base, m)
             history: list[SoquetT] = []
