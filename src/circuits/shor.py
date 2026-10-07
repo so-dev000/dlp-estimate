@@ -39,7 +39,7 @@ class ShorDLP(Bloq):
     Qubit Recycling: https://arxiv.org/abs/quant-ph/0001066
     Windowing: https://arxiv.org/abs/1905.07682
 
-    |a>|b>|y> -> |a>|b>|y h^a g^b>, QFT^{-1} はSemi-Classical+recycling
+    |a>|b>|x> -> |a>|b>|x h^a g^b>。
     """
 
     instance: DLPInstance
@@ -74,7 +74,7 @@ class ShorDLP(Bloq):
             [
                 Register("a", CBit(), shape=(m,), side=Side.RIGHT),
                 Register("b", CBit(), shape=(m,), side=Side.RIGHT),
-                Register("y", QUInt(n), shape=(r,), side=Side.RIGHT),
+                Register("x", QUInt(n), shape=(r,), side=Side.RIGHT),
             ]
         )
 
@@ -83,16 +83,22 @@ class ShorDLP(Bloq):
         n = self.instance.spec.coefficient_bits
         r = self.instance.spec.r
 
-        # ancilla |y> = |1>
-        y = np.array(
+        # target |x> = |1>
+        x = np.array(
             [bb.allocate(dtype=QUInt(n)) for _ in range(r)],
             dtype=object,
         )
-        y[-1] = bb.add(XorK(dtype=QUInt(n), k=1), x=y[-1])
+        x[-1] = bb.add(XorK(dtype=QUInt(n), k=1), x=x[-1])
 
         outputs: dict[str, SoquetT] = {}
 
-        # |1> -> |h^a> -> |h^a g^b>
+        # working register |0>
+        work = np.array(
+            [bb.allocate(dtype=QUInt(n)) for _ in range(r)],
+            dtype=object,
+        )
+
+        # |x=1> -> |h^a> -> |h^a g^b>
         for name, base in (("a", self.instance.h), ("b", self.instance.g)):
             constants = _squared_constants(self.field, base, m)
             history: list[SoquetT] = []
@@ -123,14 +129,15 @@ class ShorDLP(Bloq):
                     ),
                 )
 
-                exp_window, y = bb.add_t(
+                exp_window, x, work = bb.add_t(
                     WindowedConstMul(
                         spec=self.instance.spec,
                         window_constants=window_constants,
                         mul_window_size=self.mul_window_size,
                     ),
                     exp_window=exp_window,
-                    x=y,
+                    x=x,
+                    work=work,
                 )
 
                 bits = bb.split(exp_window)
@@ -148,7 +155,10 @@ class ShorDLP(Bloq):
                 dtype=object,
             )
 
-        outputs["y"] = y
+        for soq in work:
+            bb.free(soq)
+
+        outputs["x"] = x
         return outputs
 
     def adjoint(self):

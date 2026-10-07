@@ -10,7 +10,7 @@ from src.field import FieldElement, FieldSpec, shared_field
 @attrs.frozen(kw_only=True)
 class WindowedConstMul(Bloq):
     """
-    |e>|x> -> |e>|k_e*x>, k_e = selected_factors[e]
+    |e>|x>|work=0> -> |e>|k_e*x>|0>, k_e = selected_factors[e]
     """
 
     spec: FieldSpec
@@ -40,37 +40,35 @@ class WindowedConstMul(Bloq):
     @property
     def signature(self) -> Signature:
         width = len(self.window_constants)
+        n = self.spec.coefficient_bits
         return Signature(
             [
                 Register("exp_window", BQUInt(width, 2**width)),
-                Register("x", QUInt(self.spec.coefficient_bits), shape=(self.spec.r,)),
+                Register("x", QUInt(n), shape=(self.spec.r,)),
+                Register("work", QUInt(n), shape=(self.spec.r,)),
             ]
         )
 
     def build_composite_bloq(self, bb: BloqBuilder, **soqs: SoquetT) -> dict[str, SoquetT]:
-        exp_window, x = soqs["exp_window"], soqs["x"]
-        n = self.spec.coefficient_bits
+        exp_window, x, work = soqs["exp_window"], soqs["x"], soqs["work"]
 
-        # working register |y> = |0>
-        y = np.array([bb.allocate(dtype=QUInt(n)) for _ in range(self.spec.r)], dtype=object)
-
-        # forward: |e>|x>|0> -> |e>|x>|k_e*x>, k_e = selected_factors[e]
-        exp_window, x, y = bb.add_t(
+        # forward: |e>|x>|work=0> -> |e>|x>|k_e*x>, k_e = selected_factors[e]
+        exp_window, x, work = bb.add_t(
             WindowedProductAdd(
                 spec=self.spec, factors=self.selected_factors, mul_window_size=self.mul_window_size
             ),
             exp_window=exp_window,
             x=x,
-            y=y,
+            y=work,
         )
-        x, y = y, x  # relabel
+        x, work = work, x  # relabel
 
-        # cleanup: relabel後の |k_e*a>|a> -> |k_e*a>|0>, y += -k_e^-1 * x
+        # cleanup: relabel後の |e>|k_e*x>|x> -> |e>|k_e*x>|0>
         # windowing論文のkes_inv
         negative_inverse_factors = tuple(
             self.field.neg(self.field.inv(factor)) for factor in self.selected_factors
         )
-        exp_window, x, y = bb.add_t(
+        exp_window, x, work = bb.add_t(
             WindowedProductAdd(
                 spec=self.spec,
                 factors=negative_inverse_factors,
@@ -78,20 +76,21 @@ class WindowedConstMul(Bloq):
             ),
             exp_window=exp_window,
             x=x,
-            y=y,
+            y=work,
         )
 
-        # free working register
-        for soq in y:
-            bb.free(soq)
-        return {"exp_window": exp_window, "x": x}
+        return {"exp_window": exp_window, "x": x, "work": work}
 
     def on_classical_vals(self, **vals: ClassicalValT) -> dict[str, ClassicalValT]:
         exp_window = int(vals["exp_window"])
         x = tuple(int(v) for v in np.asarray(vals["x"], dtype=object))
+        work = tuple(int(v) for v in np.asarray(vals["work"], dtype=object))
+        if any(v != 0 for v in work):
+            raise ValueError("work must be |0>")
         return {
             "exp_window": exp_window,
             "x": np.asarray(self.field.mul(self.selected_factors[exp_window], x), dtype=object),
+            "work": np.asarray(work, dtype=object),
         }
 
     def adjoint(self):
