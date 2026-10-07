@@ -55,6 +55,11 @@ class FieldSpec:
         """ceil(log2(p**r)) を返す。"""
         return (self.order - 1).bit_length()
 
+    @property
+    def register_bits(self) -> int:
+        """体元1個のレジスタビット数 r * coefficient_bits"""
+        return self.r * self.coefficient_bits
+
 
 def format_polynomial(coeffs: PolynomialCoefficients) -> str:
     """高次数順の係数tupleを多項式文字列表現にする。例: (1, 0, 2) -> "X^2 + 2"。"""
@@ -83,7 +88,6 @@ class FiniteField:
     """検証済みのp/fを用い、原始元探索なしで剰余演算する有限体。"""
 
     def __init__(self, spec: FieldSpec) -> None:
-        """軽量に構築する。体の検証は推定入口で明示的に行う。"""
         self.spec = spec
         self._modulus = list(spec.f)
 
@@ -95,14 +99,12 @@ class FiniteField:
             raise ValueError("f must be irreducible")
 
     def _poly(self, a: FieldElement) -> list[int]:
-        """public演算で検証済みの要素をSymPy形式へ変換する。"""
         return gf_strip(list(a))
 
     def _from_poly(self, a: list[int]) -> FieldElement:
         return (0,) * (self.spec.r - len(a)) + tuple(a)
 
     def is_zero(self, a: FieldElement) -> bool:
-        """体の構築を伴わず、係数の形と零かどうかを確認する。"""
         _validate_element(a, self.spec)
         return not any(a)
 
@@ -156,7 +158,6 @@ class FiniteField:
         return self._from_poly(inverse)
 
     def pow(self, a: FieldElement, exponent: int) -> FieldElement:
-        """整数乗を返す。負の指数は非零要素に限り、0**0は1とする。"""
         if type(exponent) is not int:
             raise ValueError("exponent must be an integer")
         _validate_element(a, self.spec)

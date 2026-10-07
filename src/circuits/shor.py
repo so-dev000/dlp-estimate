@@ -1,34 +1,35 @@
 import attrs
 import numpy as np
-from qualtran import Bloq, BloqBuilder, CBit, QBit, QUInt, Register, Side, Signature, SoquetT
+from qualtran import (
+    Bloq,
+    BloqBuilder,
+    BQUInt,
+    CBit,
+    QBit,
+    QUInt,
+    Register,
+    Side,
+    Signature,
+    SoquetT,
+)
 from qualtran.bloqs.arithmetic import XorK
 from qualtran.bloqs.basic_gates import Hadamard
 
-from src.circuits.arithmetic_gf2 import ControlledGF2ConstMul
-from src.circuits.arithmetic_modp import ControlledConstMul
 from src.circuits.semiclassical_qft import semiclassical_qft_step
+from src.circuits.windowed_const_mul import WindowedConstMul
 
-from ..field import DLPInstance, FieldElement, FieldSpec, FiniteField, shared_field
+from ..field import DLPInstance, FieldElement, FiniteField, shared_field
 
 
-def _squared_constants(
-    field: FiniteField, base: FieldElement, exponent_bits: int
-) -> tuple[FieldElement, ...]:
+def _squared_constants(field: FiniteField, base: FieldElement, m: int) -> tuple[FieldElement, ...]:
     """
-    (base^(2^{m-1}), ..., base^2, base)
-    a = Σ a_i 2^i に対し base^a = Π_i (base^(2^i))^a_i
+    (base^(2^{m-1}), ..., base^2, base) を MSB-first で返す。
+    指数ビット列 a_0...a_{m-1} に対し base^a = Π constants[i]^a_i。
     """
-    constants = [base] * exponent_bits
-    for i in range(exponent_bits - 2, -1, -1):
+    constants = [base] * m
+    for i in range(m - 2, -1, -1):
         constants[i] = field.mul(constants[i + 1], constants[i + 1])
     return tuple(constants)
-
-
-def get_controlled_const_mul(spec: FieldSpec, c: FieldElement) -> Bloq:
-    """標数2ではGF(2^r)専用、それ以外では奇標数用の制御付き定数乗算を返す。"""
-    if spec.p == 2:
-        return ControlledGF2ConstMul(spec=spec, c=c)
-    return ControlledConstMul(spec=spec, c=c)
 
 
 @attrs.frozen(kw_only=True)
@@ -36,11 +37,24 @@ class ShorDLP(Bloq):
     """
     Overall Algorithm: https://arxiv.org/abs/1905.09749
     Qubit Recycling: https://arxiv.org/abs/quant-ph/0001066
+    Windowing: https://arxiv.org/abs/1905.07682
 
-    |a>|b>|y> -> |a>|b>|y h^a g^b>, QFT^{-1} は半古典+recycling。
+    |a>|b>|y> -> |a>|b>|y h^a g^b>, QFT^{-1} はSemi-Classical+recycling
     """
 
     instance: DLPInstance
+    exp_window_size: int
+    mul_window_size: int
+
+    def __attrs_post_init__(self) -> None:
+        if self.instance.spec.p == 2:
+            raise ValueError("GF(2) is not supported in this class currently")
+
+        if not 1 <= self.exp_window_size <= self.exponent_bits:
+            raise ValueError("invalid exp_window_size")
+
+        if not 1 <= self.mul_window_size <= self.instance.spec.register_bits:
+            raise ValueError("invalid mul_window_size")
 
     @property
     def field(self):
@@ -69,7 +83,7 @@ class ShorDLP(Bloq):
         n = self.instance.spec.coefficient_bits
         r = self.instance.spec.r
 
-        # working register |y>の初期化
+        # ancilla |y> = |1>
         y = np.array(
             [bb.allocate(dtype=QUInt(n)) for _ in range(r)],
             dtype=object,
@@ -78,22 +92,61 @@ class ShorDLP(Bloq):
 
         outputs: dict[str, SoquetT] = {}
 
-        # |y> -> |y * h^a> -> |y * h^a g^b> を直接 y 上で計算する。
+        # |1> -> |h^a> -> |h^a g^b>
         for name, base in (("a", self.instance.h), ("b", self.instance.g)):
             constants = _squared_constants(self.field, base, m)
             history: list[SoquetT] = []
 
-            for constant in constants:
-                # リサイクルするcontrol qubit
-                bit = bb.allocate(dtype=QBit())
-                bit = bb.add(Hadamard(), q=bit)
-                bit, y = bb.add_t(
-                    get_controlled_const_mul(self.instance.spec, constant),
-                    ctrl=bit,
+            # exponent windowing
+            for start in range(0, m, self.exp_window_size):
+                window_constants = constants[start : start + self.exp_window_size]
+                width = len(window_constants)
+
+                # Recyclingするcontrol qubits
+                bits = np.array(
+                    [
+                        bb.add(
+                            Hadamard(),
+                            q=bb.allocate(dtype=QBit()),
+                        )
+                        for _ in range(width)
+                    ],
+                    dtype=object,
+                )
+
+                # windowing論文のei
+                exp_window = bb.join(
+                    bits,
+                    dtype=BQUInt(
+                        width,
+                        2**width,
+                    ),
+                )
+
+                exp_window, y = bb.add_t(
+                    WindowedConstMul(
+                        spec=self.instance.spec,
+                        window_constants=window_constants,
+                        mul_window_size=self.mul_window_size,
+                    ),
+                    exp_window=exp_window,
                     x=y,
                 )
-                history = semiclassical_qft_step(bb, bit, history, inverse=True)
-            outputs[name] = np.asarray(history[::-1], dtype=object)
+
+                bits = bb.split(exp_window)
+
+                for bit in bits:
+                    history = semiclassical_qft_step(
+                        bb,
+                        bit,
+                        history,
+                        inverse=True,
+                    )
+
+            outputs[name] = np.asarray(
+                history[::-1],
+                dtype=object,
+            )
 
         outputs["y"] = y
         return outputs

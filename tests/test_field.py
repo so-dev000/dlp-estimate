@@ -84,6 +84,19 @@ def test_format_polynomial(coefficients, expected):
     assert format_polynomial(coefficients) == expected
 
 
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        (FieldSpec(p=2, r=3, f=(1, 0, 1, 1)), 3),
+        (FieldSpec(p=5, r=1, f=(1, 0)), 3),
+        (FieldSpec(p=5, r=2, f=(1, 0, 2)), 6),
+    ],
+)
+def test_register_bits_counts_padded_encoding(spec, expected):
+    assert spec.register_bits == expected
+    assert spec.register_bits == spec.r * spec.coefficient_bits
+
+
 def test_prime_field_modulus_is_high_degree_first():
     field = FiniteField(FieldSpec(p=5, r=1, f=(1, 0)))
     field.validate()
